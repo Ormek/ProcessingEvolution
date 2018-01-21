@@ -17,7 +17,7 @@ import java.io.InputStream;
 import java.io.OutputStream; 
 import java.io.IOException; 
 
-public class evolution3WEB extends PApplet {
+public class Evolution3WEB extends PApplet {
 
 // Last edited January 17, 2013, UNTIL I brought it back on June 19, 2015!
 
@@ -1681,7 +1681,7 @@ public void draw(){
 }
 
   static public void main(String[] passedArgs) {
-    String[] appletArgs = new String[] { "evolution.evolution3WEB" };
+    String[] appletArgs = new String[] { "evolution.Evolution3WEB" };
     if (passedArgs != null) {
       PApplet.main(concat(appletArgs, passedArgs));
     } else {

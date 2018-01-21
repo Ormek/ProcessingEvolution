@@ -2,9 +2,9 @@ package evolution;
 
 import java.util.ArrayList;
 
-import evolution.Evolution.Creature;
-import evolution.Evolution.Muscle;
-import evolution.Evolution.Node;
+import evolution.Evolution3WEB.Creature;
+import evolution.Evolution3WEB.Muscle;
+import evolution.Evolution3WEB.Node;
 
 public class Simulator {
 
