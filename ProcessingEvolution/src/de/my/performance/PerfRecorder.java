@@ -36,7 +36,7 @@ public class PerfRecorder {
 	public PerfRecorder() {
 		final SimpleDateFormat form = new SimpleDateFormat("yyMMdd-HHmmss");
 		final Date now = new Date();
-		init("It took: ", "perf_" + form.format(now));
+		init("It took: ", "performance\\perf_" + form.format(now));
 	}
 
 	public PerfRecorder(String label, String file) {
