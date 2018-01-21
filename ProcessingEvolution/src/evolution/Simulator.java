@@ -58,9 +58,9 @@ public class Simulator {
 		}
 		for (int i = 0; i < n.size(); i++) {
 			Node ni = n.get(i);
-			ni.applyForces(i);
-			ni.applyGravity(i);
-			ni.hitWalls(i);
+			ni.applyForces();
+			ni.applyGravity();
+			//Simulator does not know about walls: ni.hitWalls(rects); 
 		}
 	}
 
