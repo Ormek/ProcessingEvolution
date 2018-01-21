@@ -5,7 +5,10 @@ import processing.data.*;
 import processing.event.*; 
 import processing.opengl.*; 
 
-import java.util.HashMap; 
+import java.util.HashMap;
+
+import de.my.performance.PerfRecorder;
+
 import java.util.ArrayList; 
 import java.io.File; 
 import java.io.BufferedReader; 
@@ -1616,6 +1619,8 @@ public void draw(){
     }
     drawScreenImage(3);
     gen++;
+	PerfRecorder.instance().setLabel("Gen "+gen+" took: ");
+	PerfRecorder.instance().recordIteration();
     if(stepbystep){
       setMenu(13);
     }else{
