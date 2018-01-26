@@ -494,9 +494,7 @@ public class Evolution3WEB extends PApplet {
         n.clear();
         m.clear();
         thisCreature.copyNodes(n);
-        for (int i = 0; i < thisCreature.m.size(); i++) {
-            m.add(thisCreature.m.get(i).copyMuscle());
-        }
+        thisCreature.copyMuscles(m);
         id = thisCreature.id;
         timer = 0;
         camzoom = 0.01f;

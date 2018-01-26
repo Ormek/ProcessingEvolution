@@ -8,7 +8,7 @@ import processing.core.PApplet;
 
 public class Creature {
     private ArrayList<Node> n;
-    ArrayList<Muscle> m;
+    private ArrayList<Muscle> m;
     private float distance;
     int id;
     boolean alive;
@@ -284,5 +284,12 @@ public class Creature {
        for (int i = 0; i < n.size(); i++) {
             canvas.drawNode(n.get(i), x, y, toImage);
        }
+    }
+
+    public void copyMuscles(ArrayList<Muscle> m2) {
+        for (int i = 0; i < m.size(); i++) {
+            m.add(m.get(i).copyMuscle());
+        }
+        
     }
 }
