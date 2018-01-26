@@ -279,12 +279,12 @@ public class Creature {
         }
     }
 
-    public void simulate(int timer, float cTimer, Iterable<Rectangle> rects) {
+    public void simulate(int timer, Iterable<Rectangle> rects) {
         for (int i = 0; i < m.size(); i++) {
             Muscle mi = m.get(i);
 
             float target2;
-            target2 = mi.calculateTargetLength(timer, cTimer);
+            target2 = mi.calculateTargetLength(timer, creatureTimer);
             mi.applyForce(n, target2);
         }
         for (int i = 0; i < n.size(); i++) {

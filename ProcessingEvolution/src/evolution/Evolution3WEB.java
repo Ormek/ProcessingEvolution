@@ -1009,17 +1009,10 @@ public class Evolution3WEB extends PApplet {
                 }
             } else {
                 for (int i = 0; i < 1000; i++) {
-                    
                     Creature simulator = c[i].copyCreature(0);
                     timer = 0;
-                    camzoom = 0.01f;
-                    cam = 0;
-                    cTimer = c[i].creatureTimer;
-                    simulationTimer = 0;
-
                     for (int s = 0; s < 900; s++) {
-                        simulator.simulate(timer, cTimer, rects);
-                        simulationTimer++;
+                        simulator.simulate(timer, rects);
                         timer++;
                     }
                     float midDistance = simulator.getAverage();
@@ -1365,8 +1358,8 @@ public class Evolution3WEB extends PApplet {
 
         // Create the creature based on these nodes and muscles
         float heartbeat = random(40, 80);
-        Creature createdCreature = new Creature(id + 1, new ArrayList<Node>(n), new ArrayList<Muscle>(m), 0, 
-                heartbeat, 1.0f);
+        Creature createdCreature = new Creature(id + 1, new ArrayList<Node>(n), new ArrayList<Muscle>(m), 0, heartbeat,
+                1.0f);
         createdCreature.checkForOverlap();
         createdCreature.checkForLoneNodes((x, y) -> random(x, y));
         return createdCreature;
