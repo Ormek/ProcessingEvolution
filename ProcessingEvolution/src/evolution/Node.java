@@ -37,7 +37,7 @@ public class Node {
 		vy += GRAVITY;
 	}
 
-	public void hitWalls(Iterable<Rectangle> rects) {
+	public void hitWalls(Iterable<? extends Rectangle> rects) {
 		float dif = y + m / 2;
 		if (dif >= 0 && haveGround) {
 			y = -m / 2;

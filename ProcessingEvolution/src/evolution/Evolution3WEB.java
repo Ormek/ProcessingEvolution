@@ -3,6 +3,7 @@ package evolution;
 import java.util.ArrayList;
 
 import de.my.performance.PerfRecorder;
+import evolution.parallel.ParallelSimulation;
 import processing.core.PApplet;
 import processing.core.PFont;
 import processing.core.PGraphics;
@@ -1008,16 +1009,7 @@ public class Evolution3WEB extends PApplet {
                     speed = min(creaturesTested * 3 - 9, 1000);
                 }
             } else {
-                for (int i = 0; i < 1000; i++) {
-                    Creature simulator = c[i].copyCreature(0);
-                    timer = 0;
-                    for (int s = 0; s < 900; s++) {
-                        simulator.simulate(timer, rects);
-                        timer++;
-                    }
-                    float midDistance = simulator.getAverage();
-                    c[i].setDistance(midDistance * 0.2f);
-                }
+                ParallelSimulation.simulateFitness(c, rects);
                 setMenu(6);
             }
         }

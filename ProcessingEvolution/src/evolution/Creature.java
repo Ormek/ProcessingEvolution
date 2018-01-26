@@ -279,7 +279,7 @@ public class Creature {
         }
     }
 
-    public void simulate(int timer, Iterable<Rectangle> rects) {
+    public void simulate(int timer, Iterable<? extends Rectangle> rects) {
         for (int i = 0; i < m.size(); i++) {
             Muscle mi = m.get(i);
 
