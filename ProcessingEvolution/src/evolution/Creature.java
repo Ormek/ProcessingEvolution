@@ -223,6 +223,15 @@ public class Creature {
         
     }
     
+    public float getAverage() {
+        float sum = 0;
+        for (int i = 0; i < n.size(); i++) {
+            Node ni = n.get(i);
+            sum += ni.x;
+        }
+        return sum / n.size();
+    }
+    
     public void normalize() {
         toStableConfiguration();
         adjustToCenter();
@@ -270,10 +279,23 @@ public class Creature {
         }
     }
 
+    public void simulate(int timer, float cTimer, Iterable<Rectangle> rects) {
+        for (int i = 0; i < m.size(); i++) {
+            Muscle mi = m.get(i);
 
+            float target2;
+            target2 = mi.calculateTargetLength(timer, cTimer);
+            mi.applyForce(n, target2);
+        }
+        for (int i = 0; i < n.size(); i++) {
+            Node ni = n.get(i);
+            ni.applyForces();
+            ni.applyGravity();
+            ni.hitWalls(rects);
+        }
+    }
 
-
-
+    
     public void copyNodes(ArrayList<Node> n2) {
         for (int i = 0; i < n.size(); i++) {
             n2.add(n.get(i).copyNode());

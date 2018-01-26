@@ -517,7 +517,6 @@ public class Evolution3WEB extends PApplet {
             ni.applyGravity();
             ni.hitWalls(rects);
         }
-        simulationTimer++;
     }
 
     public void setAverage() {
@@ -859,6 +858,7 @@ public class Evolution3WEB extends PApplet {
             textAlign(LEFT);
             text(nf(average / 5.0f, 0, 3), px2 + 15, py2 + 36);
             simulate();
+            simulationTimer++;
             timer++;
             int shouldBeWatching = statusWindow;
             if (statusWindow <= -1) {
@@ -1009,13 +1009,21 @@ public class Evolution3WEB extends PApplet {
                 }
             } else {
                 for (int i = 0; i < 1000; i++) {
-                    setGlobalVariables(c[i]);
+                    
+                    Creature simulator = c[i].copyCreature(0);
+                    timer = 0;
+                    camzoom = 0.01f;
+                    cam = 0;
+                    cTimer = c[i].creatureTimer;
+                    simulationTimer = 0;
+
                     for (int s = 0; s < 900; s++) {
-                        simulate();
+                        simulator.simulate(timer, cTimer, rects);
+                        simulationTimer++;
                         timer++;
                     }
-                    setAverage();
-                    c[i].setDistance(average * 0.2f);
+                    float midDistance = simulator.getAverage();
+                    c[i].setDistance(midDistance * 0.2f);
                 }
                 setMenu(6);
             }
@@ -1028,6 +1036,7 @@ public class Evolution3WEB extends PApplet {
                 for (int s = 0; s < speed; s++) {
                     if (timer < 900) {
                         simulate();
+                        simulationTimer++;
                         timer++;
                     }
                 }
