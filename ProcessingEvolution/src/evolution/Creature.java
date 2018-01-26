@@ -10,12 +10,12 @@ public class Creature {
     private ArrayList<Node> n;
     private ArrayList<Muscle> m;
     private float distance;
-    int id;
-    boolean alive;
+    final int id;
+    private boolean alive;
     float creatureTimer;
     float mutability;
 
-    Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm, float td, boolean talive, float tct, float tmut) {
+    private Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm, float td, boolean talive, float tct, float tmut) {
         id = tid;
         m = tm;
         n = tn;
@@ -23,6 +23,19 @@ public class Creature {
         alive = talive;
         creatureTimer = tct;
         mutability = tmut;
+    }
+
+    /**
+     * Create a new creature with the given data. The creature is alive
+     * @param tid
+     * @param tn
+     * @param tm
+     * @param td
+     * @param tct
+     * @param tmut
+     */
+    public Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm, float td, float tct, float tmut) {
+       this(tid, tn, tm, td, true, tct, tmut);
     }
     
     /**
@@ -202,7 +215,7 @@ public class Creature {
         if (newID == -1) {
             newID = id;
         }
-        return new Creature(newID, n2, m2, distance, alive, creatureTimer, mutability);
+        return new Creature(newID, n2, m2, distance, isAlive(), creatureTimer, mutability);
     }
 
     public void setDistance(float f) {
@@ -288,8 +301,22 @@ public class Creature {
 
     public void copyMuscles(ArrayList<Muscle> m2) {
         for (int i = 0; i < m.size(); i++) {
-            m.add(m.get(i).copyMuscle());
+            m2.add(m.get(i).copyMuscle());
         }
         
+    }
+
+    /**
+     * @return the alive
+     */
+    public boolean isAlive() {
+        return alive;
+    }
+
+    /**
+     * @param alive the alive to set
+     */
+    public void die() {
+        this.alive = false;
     }
 }

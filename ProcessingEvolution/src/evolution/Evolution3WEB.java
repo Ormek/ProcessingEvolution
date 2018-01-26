@@ -689,7 +689,7 @@ public class Evolution3WEB extends PApplet {
                 Creature cj = c2.get(j);
                 int x = j % 40;
                 int y = floor(j / 40) + 1;
-                if (cj.alive) {
+                if (cj.isAlive()) {
                     cj.drawCreatureWhole(x * 30 + 55, y * 25 + 40, 0, this);
                 } else {
                     screenImage.rect(x * 30 + 40, y * 25 + 17, 30, 25);
@@ -1207,9 +1207,9 @@ public class Evolution3WEB extends PApplet {
                     j3 = j;
                 }
                 Creature cj = c2.get(j2);
-                cj.alive = true;
+                //cj.die(true);
                 Creature ck = c2.get(j3);
-                ck.alive = false;
+                ck.die();
             }
             if (stepbystep) {
                 drawScreenImage(2);
@@ -1224,7 +1224,7 @@ public class Evolution3WEB extends PApplet {
                 // Creatures are stored in c2 in pairs (x, 500-x). If x is dead, then 500-x is alive and vice versa.
                 // The dead creature will be replaced by a modified version of its alive counterpart.
                 int liveIndex, deadIndex;
-                if (!c2.get(j).alive) { // j is dead
+                if (!c2.get(j).isAlive()) { // j is dead
                     liveIndex = 999 - j;
                     deadIndex = j;
                 } else {
@@ -1356,7 +1356,7 @@ public class Evolution3WEB extends PApplet {
 
         // Create the creature based on these nodes and muscles
         float heartbeat = random(40, 80);
-        Creature createdCreature = new Creature(id + 1, new ArrayList<Node>(n), new ArrayList<Muscle>(m), 0, true,
+        Creature createdCreature = new Creature(id + 1, new ArrayList<Node>(n), new ArrayList<Muscle>(m), 0, 
                 heartbeat, 1.0f);
         createdCreature.checkForOverlap();
         createdCreature.checkForLoneNodes((x, y) -> random(x, y));
