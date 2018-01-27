@@ -9,4 +9,8 @@ public class Rectangle {
         x2 = tx2;
         y2 = ty2;
     }
+
+    public Rectangle(double tx1, double d, double tx2, double ty2) {
+        this((float)tx1, (float)d, (float)tx2, (float)ty2);
+    }
 }

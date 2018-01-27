@@ -6,6 +6,8 @@ import de.my.function.FloatBinaryOperation;
 import de.my.function.FloatSupplier;
 import processing.core.PApplet;
 
+import static evolution.Evolution3WEB.*;
+
 public class Creature {
     private ArrayList<Node> n;
     private ArrayList<Muscle> m;
@@ -15,29 +17,91 @@ public class Creature {
     float creatureTimer;
     float mutability;
 
-    private Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm, float td, boolean talive, float tct,
+    /**
+     * true iff the fitness of this creature as already been determined. There is no need to simulate again (if the
+     * environment did not change!)
+     */
+    private boolean tested;
+
+    private Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm,  boolean talive, float tct,
             float tmut) {
         id = tid;
         m = tm;
         n = tn;
-        fitness = td;
         alive = talive;
         creatureTimer = tct;
         mutability = tmut;
     }
 
     /**
-     * Create a new creature with the given data. The creature is alive
+     * Create a new creature with the given data. The creature is alive and untested.
      * 
-     * @param tid
-     * @param tn
-     * @param tm
-     * @param td
-     * @param tct
-     * @param tmut
      */
-    public Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm, float td, float tct, float tmut) {
-        this(tid, tn, tm, td, true, tct, tmut);
+    public Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm, float tct, float tmut) {
+        this(tid, tn, tm,  true, tct, tmut);
+    }
+
+    /**
+     * Creates a new random creature with the given id. The creature is "stable" and at the origin. 
+     * @param id id to use for the new creature
+     * @param random returns random number in the range [a, b)
+     * @return newly created creature in a stable condition.
+     */
+    public static Creature createRandomCreature(int id, FloatBinaryOperation random) {
+        ArrayList<Node> n;
+        ArrayList<Muscle> m;
+        // Determine number of nodes and muscles this creature will have
+        int nodeNum = PApplet.parseInt(random.applyAsFloat(3, 6));
+        n = new ArrayList<Node>(nodeNum);
+
+        int muscleNum = PApplet.parseInt(random.applyAsFloat(nodeNum - 1, nodeNum * 3 - 6));
+        m = new ArrayList<Muscle>(muscleNum);
+        // Create Nodes
+        for (int i = 0; i < nodeNum; i++) {
+            // always use node size 0.4, used to be random(0.1,1), random(0,1)
+            n.add(new Node(random.applyAsFloat(-1, 1), random.applyAsFloat(-1, 1), 0, 0,
+                    random.applyAsFloat(MINIMUM_NODE_SIZE, MAXIMUM_NODE_SIZE),
+                    random.applyAsFloat(MINIMUM_NODE_FRICTION, MAXIMUM_NODE_FRICTION)));
+        }
+        // Create Muscles
+        for (int i = 0; i < muscleNum; i++) {
+            int tc1;
+            int tc2;
+            if (i < nodeNum - 1) {
+                tc1 = i;
+                tc2 = i + 1;
+            } else {
+                tc1 = PApplet.parseInt(random.applyAsFloat(0, nodeNum));
+                tc2 = tc1;
+                while (tc2 == tc1) {
+                    tc2 = PApplet.parseInt(random.applyAsFloat(0, nodeNum));
+                }
+            }
+            float rlength1 = random.applyAsFloat(0.5f, 1.5f);
+            float rlength2 = random.applyAsFloat(0.5f, 1.5f);
+            float rtime1 = random.applyAsFloat(0, 1);
+            float rtime2 = random.applyAsFloat(0, 1);
+            m.add(new Muscle(PApplet.parseInt(random.applyAsFloat(1, 3)), tc1, tc2, rtime1, rtime2,
+                    min(rlength1, rlength2), max(rlength1, rlength2), isItContracted(rtime1, rtime2),
+                    random.applyAsFloat(0.02f, 0.08f)));
+        }
+        // Create the creature based on these nodes and muscles
+        float heartbeat = random.applyAsFloat(40, 80);
+        Creature createdCreature = new Creature(id, new ArrayList<Node>(n), new ArrayList<Muscle>(m), heartbeat,
+                1.0f);
+
+        // That lone nodes and overlapping muscles are still considered when we come to a stable configuration seems weird. 
+
+        // Make the created Nodes and muscles come to equilibrium 
+        createdCreature.toStableConfiguration();
+        // Move the creature to the center and to the floor
+        createdCreature.adjustToCenter();
+
+        createdCreature.checkForOverlap();
+        createdCreature.checkForLoneNodes((x, y) -> random.applyAsFloat(x, y));
+
+        return createdCreature;
+
     }
 
     /**
@@ -52,7 +116,7 @@ public class Creature {
      * @return
      */
     public Creature modified(int id, FloatSupplier r, FloatBinaryOperation random) {
-        Creature modifiedCreature = new Creature(id, new ArrayList<Node>(0), new ArrayList<Muscle>(0), 0, true,
+        Creature modifiedCreature = new Creature(id, new ArrayList<Node>(0), new ArrayList<Muscle>(0), true,
                 creatureTimer + r.getAsFloat() * 16 * mutability * Evolution3WEB.MUTABILITY_FACTOR,
                 Evolution3WEB.min(mutability * Evolution3WEB.MUTABILITY_FACTOR * random.applyAsFloat(0.8f, 1.25f), 2));
         for (int i = 0; i < n.size(); i++) {
@@ -81,6 +145,7 @@ public class Creature {
         }
         modifiedCreature.checkForOverlap();
         modifiedCreature.checkForLoneNodes(random);
+        modifiedCreature.normalize();
         return modifiedCreature;
     }
 
@@ -103,6 +168,7 @@ public class Creature {
                 m.remove(b);
             }
         }
+        tested = false;
     }
 
     public void checkForLoneNodes(FloatBinaryOperation random) {
@@ -128,9 +194,10 @@ public class Creature {
                 }
             }
         }
+        tested = false;
     }
 
-    public void addRandomNode(FloatBinaryOperation random) {
+    private void addRandomNode(FloatBinaryOperation random) {
         int parentNode = Evolution3WEB.floor(random.applyAsFloat(0, n.size()));
         float ang1 = random.applyAsFloat(0, 2 * Evolution3WEB.PI);
         float distance = Evolution3WEB.sqrt(random.applyAsFloat(0, 1));
@@ -204,9 +271,14 @@ public class Creature {
         m.remove(choice);
     }
 
+    /**
+     * @param newID
+     *            id of the new creature or -1 to copy the id as well
+     * @return a copy if this, possibly with a new id.
+     */
     public Creature copyCreature(int newID) {
-        ArrayList<Node> n2 = new ArrayList<Node>(0);
-        ArrayList<Muscle> m2 = new ArrayList<Muscle>(0);
+        ArrayList<Node> n2 = new ArrayList<Node>(n.size());
+        ArrayList<Muscle> m2 = new ArrayList<Muscle>(m.size());
         for (int i = 0; i < n.size(); i++) {
             n2.add(n.get(i).copyNode());
         }
@@ -216,17 +288,22 @@ public class Creature {
         if (newID == -1) {
             newID = id;
         }
-        return new Creature(newID, n2, m2, fitness, isAlive(), creatureTimer, mutability);
+        Creature copy = new Creature(newID, n2, m2, isAlive(), creatureTimer, mutability);
+        copy.fitness = this.fitness;
+        copy.tested = this.tested;
+        return copy;
     }
 
     /**
      * Set the fitness of the creature. The fitness of the creature is defined by the environment. The creature does
      * store its fitness, but does not determine it.
      * 
-     * @param f new fitness of the creature.
+     * @param f
+     *            new fitness of the creature.
      */
     public void setFitness(float f) {
         fitness = f;
+        tested = true;
     }
 
     /**
@@ -236,6 +313,13 @@ public class Creature {
      */
     public float getFitness() {
         return fitness;
+    }
+
+    /**
+     * @return true iff this creature has been given its fitness.
+     */
+    public boolean hasBeenTested() {
+        return tested;
     }
 
     public float getAverage() {
@@ -276,7 +360,7 @@ public class Creature {
         }
     }
 
-    public void adjustToCenter() {
+    private void adjustToCenter() {
         float avx = 0;
         float lowY = -1000;
         for (int i = 0; i < n.size(); i++) {
@@ -292,6 +376,7 @@ public class Creature {
             ni.x -= avx;
             ni.y -= lowY;
         }
+        tested = false;
     }
 
     public void simulate(int timer, Iterable<? extends Rectangle> rects) {

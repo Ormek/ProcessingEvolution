@@ -11,52 +11,57 @@ import evolution.Creature;
 import evolution.Rectangle;
 
 public class ParallelSimulation {
-    
+
     private static ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(8);
-    
-    private static class Simulate implements Callable<Object>{
-        
+
+    private static class Simulate implements Callable<Object> {
+
         /**
          * The creature that is simulated. After simulation its fitness is updated.
          */
         private Creature c;
-        
+
         /**
-         * The set of obstacles. 
+         * The set of obstacles.
          */
         private Iterable<? extends Rectangle> rects;
 
-        public Simulate(Creature c, Iterable<?extends Rectangle>rects) {
-            this.c =c;
-            this.rects =rects;
+        public Simulate(Creature c, Iterable<? extends Rectangle> rects) {
+            this.c = c;
+            this.rects = rects;
         }
 
-        /** 
-         * Do the simulation and store its resutl in the creature directly.
+        /**
+         * Do the simulation and store its results in the creature directly.
+         * 
          * @return null
          */
         @Override
         public Object call() {
-            Creature simulator = c.copyCreature(0);
+            Creature runningCreature = c.copyCreature(0);
             int timer = 0;
             for (int s = 0; s < 900; s++) {
-                simulator.simulate(timer, rects);
+                runningCreature.simulate(timer, rects);
                 timer++;
             }
-            float midDistance = simulator.getAverage();
+            float midDistance = runningCreature.getAverage();
             c.setFitness(midDistance * 0.2f);
             return null;
         }
     }
 
     /**
-     * @param cs Array of creatures. Their Distance will get updated.
-     * @param rects Obstacles for the creatures.
+     * @param cs
+     *            Array of creatures. Their Distance will get updated.
+     * @param rects
+     *            Obstacles for the creatures.
      */
     public static void simulateFitness(Creature[] cs, final List<? extends Rectangle> rects) {
         ArrayList<Callable<Object>> simulators = new ArrayList<Callable<Object>>(cs.length);
         for (int i = 0; i < cs.length; i++) {
-            simulators.add(new Simulate(cs[i], rects));
+            if (!cs[i].hasBeenTested()) {
+                simulators.add(new Simulate(cs[i], rects));
+            }
         }
         try {
             threadPoolExecutor.invokeAll(simulators);

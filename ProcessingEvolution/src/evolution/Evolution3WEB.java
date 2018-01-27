@@ -53,12 +53,12 @@ public class Evolution3WEB extends PApplet {
     // ALSO NOTE: y-values increase as you go down. So 3 is in the air, and -3
     // is in the ground. 0 is the surface.
     final Rectangle[] RECTANGLES = {
-            /*
-             * new Rectangle(2,-0.4,7,1), //Example hurdles new Rectangle(4,-0.8,9,1), new Rectangle(6,-1.2,11,1), new
-             * Rectangle(8,-1.6,13,1), new Rectangle(10,-2,15,1), new Rectangle(12,-2.4,17,1), new
-             * Rectangle(14,-2.8,19,1), new Rectangle(16,-3.2,21,1), new Rectangle(18,-3.6,23,1), new
-             * Rectangle(20,-4.0,25,1)
-             */
+            //Example hurdles 
+            //            new Rectangle(2, -0.4, 7, 1), new Rectangle(4, -0.8f, 9, 1), new Rectangle(6, -1.2, 11, 1),
+            //            new Rectangle(8, -1.6, 13, 1), new Rectangle(10, -2, 15, 1), new Rectangle(12, -2.4f, 17, 1),
+            //            new Rectangle(14, -2.8, 19, 1), new Rectangle(16, -3.2, 21, 1), new Rectangle(18, -3.6f, 23, 1),
+            //            new Rectangle(20, -4.0, 25, 1)
+
     };
 
     float histMinValue = -1; // histogram information
@@ -996,7 +996,7 @@ public class Evolution3WEB extends PApplet {
 
                     int id = y * 40 + x;
 
-                    Creature createdCreature = createRandomCreature(id);
+                    Creature createdCreature = Creature.createRandomCreature(id+1, (a, b) -> random(a, b));;
 
                     c[id] = createdCreature;
 
@@ -1206,17 +1206,12 @@ public class Evolution3WEB extends PApplet {
                 float f = PApplet.parseFloat(j) / CREATURE_COUNT;
                 float rand = (pow(random(-1, 1), 3) + 1) / 2; // cube function
                 slowDies = (f <= rand);
-                int j2;
                 int j3;
                 if (slowDies) {
-                    j2 = j;
                     j3 = 999 - j;
                 } else {
-                    j2 = 999 - j;
                     j3 = j;
                 }
-                Creature cj = c2.get(j2);
-                //cj.die(true);
                 Creature ck = c2.get(j3);
                 ck.die();
             }
@@ -1244,14 +1239,7 @@ public class Evolution3WEB extends PApplet {
                 int deadCreatureId = c2.get(deadIndex).id;
                 Creature offspring = liveCreature.modified(deadCreatureId + CREATURE_COUNT, () -> r(),
                         (x, y) -> random(x, y));
-                offspring.normalize();
                 c2.set(deadIndex, offspring); // mutated
-                // offspring 1
-                //                n = c2.get(999 - liveIndex).n;
-                //              m = c2.get(999 - liveIndex).m;
-                //            toStableConfiguration(n.size(), m.size());
-                //          c2.get(999-liveIndex).toStableConfiguration();
-                //        adjustToCenter(n.size());
                 c2.set(liveIndex, liveCreature.copyCreature(liveCreature.id + CREATURE_COUNT)); // duplicate
             }
             for (int j = 0; j < CREATURE_COUNT; j++) {
@@ -1325,53 +1313,6 @@ public class Evolution3WEB extends PApplet {
         overallTimer++;
     }
 
-    private Creature createRandomCreature(int id) {
-        // Clear global node and muscle sets
-        n.clear();
-        m.clear();
-        // Determine number of nodes and muscles this creature will have
-        int nodeNum = PApplet.parseInt(random(3, 6));
-        int muscleNum = PApplet.parseInt(random(nodeNum - 1, nodeNum * 3 - 6));
-        // Create Nodes
-        for (int i = 0; i < nodeNum; i++) {
-            // always use node size 0.4, used to be random(0.1,1), random(0,1)
-            n.add(new Node(random(-1, 1), random(-1, 1), 0, 0, random(MINIMUM_NODE_SIZE, MAXIMUM_NODE_SIZE),
-                    random(MINIMUM_NODE_FRICTION, MAXIMUM_NODE_FRICTION)));
-        }
-        // Create Muscles
-        for (int i = 0; i < muscleNum; i++) {
-            int tc1;
-            int tc2;
-            if (i < nodeNum - 1) {
-                tc1 = i;
-                tc2 = i + 1;
-            } else {
-                tc1 = PApplet.parseInt(random(0, nodeNum));
-                tc2 = tc1;
-                while (tc2 == tc1) {
-                    tc2 = PApplet.parseInt(random(0, nodeNum));
-                }
-            }
-            float rlength1 = random(0.5f, 1.5f);
-            float rlength2 = random(0.5f, 1.5f);
-            float rtime1 = random(0, 1);
-            float rtime2 = random(0, 1);
-            m.add(new Muscle(PApplet.parseInt(random(1, 3)), tc1, tc2, rtime1, rtime2, min(rlength1, rlength2),
-                    max(rlength1, rlength2), isItContracted(rtime1, rtime2), random(0.02f, 0.08f)));
-        }
-        // Make the created Nodes and muscles come to equilibrium 
-        toStableConfiguration(nodeNum, muscleNum);
-        // Move the creature to the center and to the floor
-        adjustToCenter(nodeNum);
-
-        // Create the creature based on these nodes and muscles
-        float heartbeat = random(40, 80);
-        Creature createdCreature = new Creature(id + 1, new ArrayList<Node>(n), new ArrayList<Muscle>(m), 0, heartbeat,
-                1.0f);
-        createdCreature.checkForOverlap();
-        createdCreature.checkForLoneNodes((x, y) -> random(x, y));
-        return createdCreature;
-    }
 
     static public void main(String[] passedArgs) {
         String[] appletArgs = new String[] { "evolution.Evolution3WEB" };
