@@ -996,7 +996,7 @@ public class Evolution3WEB extends PApplet {
 
                     int id = y * 40 + x;
 
-                    Creature createdCreature = Creature.createRandomCreature(id+1, (a, b) -> random(a, b));;
+                    Creature createdCreature = Creature.createRandomCreature(id + 1, (a, b) -> random(a, b));
 
                     c[id] = createdCreature;
 
@@ -1246,7 +1246,9 @@ public class Evolution3WEB extends PApplet {
                 Creature cj = c2.get(j);
                 c[cj.id - (gen * CREATURE_COUNT) - 1001] = cj.copyCreature(-1);
             }
-            drawScreenImage(3);
+            if (stepbystep) {
+                drawScreenImage(3);
+            }
             gen++;
             final float median = PApplet
                     .parseFloat(round(percentile.get(min(genSelected, percentile.size() - 1))[14] * 1000)) / 1000;
@@ -1312,7 +1314,6 @@ public class Evolution3WEB extends PApplet {
         }
         overallTimer++;
     }
-
 
     static public void main(String[] passedArgs) {
         String[] appletArgs = new String[] { "evolution.Evolution3WEB" };
