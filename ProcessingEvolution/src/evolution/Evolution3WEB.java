@@ -425,9 +425,9 @@ public class Evolution3WEB extends PApplet {
             equal.add(c0);
             for (int i = 1; i < c.size(); i++) {
                 Creature ci = c.get(i);
-                if (ci.getDistance() == c0.getDistance()) {
+                if (ci.getFitness() == c0.getFitness()) {
                     equal.add(ci);
-                } else if (ci.getDistance() < c0.getDistance()) {
+                } else if (ci.getFitness() < c0.getFitness()) {
                     less.add(ci);
                 } else {
                     more.add(ci);
@@ -832,7 +832,7 @@ public class Evolution3WEB extends PApplet {
         textAlign(CENTER);
         text("#" + rank, px, py + 12);
         text("ID: " + cj.id, px, py + 24);
-        text("Fitness: " + nf(cj.getDistance(), 0, 3), px, py + 36);
+        text("Fitness: " + nf(cj.getFitness(), 0, 3), px, py + 36);
         colorMode(HSB, 1);
         int sp = cj.getSpecies();
         fill(getColor(sp, true));
@@ -1065,7 +1065,7 @@ public class Evolution3WEB extends PApplet {
                 } else {
                     timer = 1020;
                 }
-                c[creaturesTested].setDistance(average * 0.2f);
+                c[creaturesTested].setFitness(average * 0.2f);
             }
             if (timer >= 1020) {
                 setMenu(4);
@@ -1088,7 +1088,7 @@ public class Evolution3WEB extends PApplet {
             c2 = quickSort(c2);
             percentile.add(new Float[29]);
             for (int i = 0; i < 29; i++) {
-                percentile.get(gen + 1)[i] = c2.get(p[i]).getDistance();
+                percentile.get(gen + 1)[i] = c2.get(p[i]).getFitness();
             }
             creatureDatabase.add(c2.get(999).copyCreature(-1));
             creatureDatabase.add(c2.get(499).copyCreature(-1));
@@ -1104,7 +1104,7 @@ public class Evolution3WEB extends PApplet {
                 beginSpecies[i] = 0;
             }
             for (int i = 0; i < 1000; i++) {
-                int bar = floor(c2.get(i).getDistance() * histBarsPerMeter - minBar);
+                int bar = floor(c2.get(i).getFitness() * histBarsPerMeter - minBar);
                 if (bar >= 0 && bar < barLen) {
                     barCounts.get(gen + 1)[bar]++;
                 }

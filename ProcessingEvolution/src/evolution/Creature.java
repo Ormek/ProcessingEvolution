@@ -9,17 +9,18 @@ import processing.core.PApplet;
 public class Creature {
     private ArrayList<Node> n;
     private ArrayList<Muscle> m;
-    private float distance;
+    private float fitness;
     final int id;
     private boolean alive;
     float creatureTimer;
     float mutability;
 
-    private Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm, float td, boolean talive, float tct, float tmut) {
+    private Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm, float td, boolean talive, float tct,
+            float tmut) {
         id = tid;
         m = tm;
         n = tn;
-        distance = td;
+        fitness = td;
         alive = talive;
         creatureTimer = tct;
         mutability = tmut;
@@ -27,6 +28,7 @@ public class Creature {
 
     /**
      * Create a new creature with the given data. The creature is alive
+     * 
      * @param tid
      * @param tn
      * @param tm
@@ -35,22 +37,18 @@ public class Creature {
      * @param tmut
      */
     public Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm, float td, float tct, float tmut) {
-       this(tid, tn, tm, td, true, tct, tmut);
-    }
-    
-    /**
-     * Getter for Distance.
-     * @return the distance the creature managed to move to the right
-     */
-    public float getDistance() {
-        return distance;
+        this(tid, tn, tm, td, true, tct, tmut);
     }
 
-    /** 
+    /**
      * Returns a modified copy of this creature.
-     * @param id id for the new creature to use.
-     * @param r some random function
-     * @param random another random function
+     * 
+     * @param id
+     *            id for the new creature to use.
+     * @param r
+     *            some random function
+     * @param random
+     *            another random function
      * @return
      */
     public Creature modified(int id, FloatSupplier r, FloatBinaryOperation random) {
@@ -61,7 +59,7 @@ public class Creature {
             modifiedCreature.n.add(n.get(i).modifyNode(mutability, r));
         }
         for (int i = 0; i < m.size(); i++) {
-            modifiedCreature.m.add(m.get(i).modifyMuscle(n.size(), mutability,r, random));
+            modifiedCreature.m.add(m.get(i).modifyMuscle(n.size(), mutability, r, random));
         }
         if (random.applyAsFloat(0, 1) < 0.04f * mutability * Evolution3WEB.MUTABILITY_FACTOR || n.size() <= 2) {
             // Add a node
@@ -71,11 +69,13 @@ public class Creature {
             // Add a muscle
             modifiedCreature.addRandomMuscle(-1, -1, random);
         }
-        if (random.applyAsFloat(0, 1) < 0.04f * mutability * Evolution3WEB.MUTABILITY_FACTOR && modifiedCreature.n.size() >= 4) {
+        if (random.applyAsFloat(0, 1) < 0.04f * mutability * Evolution3WEB.MUTABILITY_FACTOR
+                && modifiedCreature.n.size() >= 4) {
             // Remove a node
             modifiedCreature.removeRandomNode(random);
         }
-        if (random.applyAsFloat(0, 1) < 0.04f * mutability * Evolution3WEB.MUTABILITY_FACTOR && modifiedCreature.m.size() >= 2) {
+        if (random.applyAsFloat(0, 1) < 0.04f * mutability * Evolution3WEB.MUTABILITY_FACTOR
+                && modifiedCreature.m.size() >= 2) {
             // Remove a muscle
             modifiedCreature.removeRandomMuscle(random);
         }
@@ -136,7 +136,8 @@ public class Creature {
         float distance = Evolution3WEB.sqrt(random.applyAsFloat(0, 1));
         float x = n.get(parentNode).x + Evolution3WEB.cos(ang1) * 0.5f * distance;
         float y = n.get(parentNode).y + Evolution3WEB.sin(ang1) * 0.5f * distance;
-        n.add(new Node(x, y, 0, 0, random.applyAsFloat(Evolution3WEB.MINIMUM_NODE_SIZE, Evolution3WEB.MAXIMUM_NODE_SIZE),
+        n.add(new Node(x, y, 0, 0,
+                random.applyAsFloat(Evolution3WEB.MINIMUM_NODE_SIZE, Evolution3WEB.MAXIMUM_NODE_SIZE),
                 random.applyAsFloat(Evolution3WEB.MINIMUM_NODE_FRICTION, Evolution3WEB.MAXIMUM_NODE_FRICTION))); // random(0.1,1),random(0,1)
         int nextClosestNode = 0;
         float record = 100000;
@@ -173,8 +174,8 @@ public class Creature {
             rlength2 = distance * (1 + ratio);
         }
         m.add(new Muscle(PApplet.parseInt(random.applyAsFloat(1, 3)), tc1, tc2, rtime1, rtime2,
-                Evolution3WEB.min(rlength1, rlength2), Evolution3WEB.max(rlength1, rlength2), Evolution3WEB.isItContracted(rtime1, rtime2),
-                random.applyAsFloat(0.02f, 0.08f)));
+                Evolution3WEB.min(rlength1, rlength2), Evolution3WEB.max(rlength1, rlength2),
+                Evolution3WEB.isItContracted(rtime1, rtime2), random.applyAsFloat(0.02f, 0.08f)));
     }
 
     public void removeRandomNode(FloatBinaryOperation random) {
@@ -215,14 +216,28 @@ public class Creature {
         if (newID == -1) {
             newID = id;
         }
-        return new Creature(newID, n2, m2, distance, isAlive(), creatureTimer, mutability);
+        return new Creature(newID, n2, m2, fitness, isAlive(), creatureTimer, mutability);
     }
 
-    public void setDistance(float f) {
-        distance = f;
-        
+    /**
+     * Set the fitness of the creature. The fitness of the creature is defined by the environment. The creature does
+     * store its fitness, but does not determine it.
+     * 
+     * @param f new fitness of the creature.
+     */
+    public void setFitness(float f) {
+        fitness = f;
     }
-    
+
+    /**
+     * Getter for the fitness of the creature.
+     * 
+     * @return the what the environment determined as the fitness of the creature.
+     */
+    public float getFitness() {
+        return fitness;
+    }
+
     public float getAverage() {
         float sum = 0;
         for (int i = 0; i < n.size(); i++) {
@@ -231,12 +246,12 @@ public class Creature {
         }
         return sum / n.size();
     }
-    
+
     public void normalize() {
         toStableConfiguration();
         adjustToCenter();
     }
-    
+
     public void toStableConfiguration() {
         for (int j = 0; j < 200; j++) {
             for (int i = 0; i < m.size(); i++) {
@@ -260,7 +275,7 @@ public class Creature {
             ni.vy = 0;
         }
     }
-    
+
     public void adjustToCenter() {
         float avx = 0;
         float lowY = -1000;
@@ -295,37 +310,37 @@ public class Creature {
         }
     }
 
-    
     public void copyNodes(ArrayList<Node> n2) {
         for (int i = 0; i < n.size(); i++) {
             n2.add(n.get(i).copyNode());
         }
-        
+
     }
 
     /**
      * Species are identified by node count and muscle count.
+     * 
      * @return Species identifier
      */
     public int getSpecies() {
         return (n.size() % 10) * 10 + (m.size() % 10);
     }
-    
+
     public void drawCreatureWhole(float x, float y, int toImage, Evolution3WEB canvas) {
         for (int i = 0; i < m.size(); i++) {
             Muscle mi = m.get(i);
             canvas.drawMuscle(mi, n.get(mi.c1), n.get(mi.c2), x, y, toImage);
         }
-       for (int i = 0; i < n.size(); i++) {
+        for (int i = 0; i < n.size(); i++) {
             canvas.drawNode(n.get(i), x, y, toImage);
-       }
+        }
     }
 
     public void copyMuscles(ArrayList<Muscle> m2) {
         for (int i = 0; i < m.size(); i++) {
             m2.add(m.get(i).copyMuscle());
         }
-        
+
     }
 
     /**
@@ -336,7 +351,8 @@ public class Creature {
     }
 
     /**
-     * @param alive the alive to set
+     * @param alive
+     *            the alive to set
      */
     public void die() {
         this.alive = false;
