@@ -11,7 +11,8 @@ import processing.event.MouseEvent;
 
 public class Evolution3WEB extends PApplet {
 
-    // Last edited January 17, 2013, UNTIL I brought it back on June 19, 2015!
+    // Number of creature in one generation. Please note, that the program is not fit to handle anything but 1000 here, yet.
+    private static final int CREATURE_COUNT = 1000;
 
     private static final int MENU_CREATE_INITIAL_POPULATION = 2;
     // These are the easy-to-edit variables.
@@ -111,7 +112,7 @@ public class Evolution3WEB extends PApplet {
     boolean miniSimulation = false;
     int creatureWatching = 0;
     int simulationTimer = 0;
-    int[] creaturesInPosition = new int[1000];
+    int[] creaturesInPosition = new int[CREATURE_COUNT];
 
     float camzoom = 0.015f;
 
@@ -122,8 +123,22 @@ public class Evolution3WEB extends PApplet {
     boolean stepbystepslow;
     boolean slowDies;
     int timeShow;
-    int[] p = { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 910, 920, 930, 940,
-            950, 960, 970, 980, 990, 999 };
+    int[] p;
+
+    public Evolution3WEB() {
+        super();
+        if (CREATURE_COUNT == 1000) {
+            p = new int[] { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 910,
+                    920, 930, 940, 950, 960, 970, 980, 990, 999 };
+        } else {
+            p = new int[29];
+            p[1] = 0;
+            for (int i = 1; i < p.length; i++) {
+                p[i] = CREATURE_COUNT / p.length * i;
+            }
+            p[p.length] = CREATURE_COUNT - 1;
+        }
+    }
 
     public float inter(int a, int b, float offset) {
         return PApplet.parseFloat(a) + (PApplet.parseFloat(b) - PApplet.parseFloat(a)) * offset;
@@ -531,7 +546,7 @@ public class Evolution3WEB extends PApplet {
 
     ArrayList<Node> n = new ArrayList<Node>();
     ArrayList<Muscle> m = new ArrayList<Muscle>();
-    Creature[] c = new Creature[1000];
+    Creature[] c = new Creature[CREATURE_COUNT];
     ArrayList<Creature> c2 = new ArrayList<Creature>();
 
     public void mouseWheel(MouseEvent event) {
@@ -646,13 +661,13 @@ public class Evolution3WEB extends PApplet {
         screenImage.background(220, 253, 102);
         screenImage.noStroke();
         camzoom = 0.12f;
-        for (int j = 0; j < 1000; j++) {
+        for (int j = 0; j < CREATURE_COUNT; j++) {
             Creature cj = c2.get(j);
             if (stage == 3)
-                cj = c[cj.id - (gen * 1000) - 1001];
+                cj = c[cj.id - (gen * CREATURE_COUNT) - 1001];
             int j2 = j;
             if (stage == 0) {
-                j2 = cj.id - (gen * 1000) - 1;
+                j2 = cj.id - (gen * CREATURE_COUNT) - 1;
                 creaturesInPosition[j2] = j;
             }
             int x = j2 % 40;
@@ -685,7 +700,7 @@ public class Evolution3WEB extends PApplet {
             screenImage.text("Because of random chance, a few fast ones get eaten, while a few slow ones survive.",
                     windowWidth / 2 - 130, 700);
             screenImage.text("Reproduce", windowWidth - 150, 700);
-            for (int j = 0; j < 1000; j++) {
+            for (int j = 0; j < CREATURE_COUNT; j++) {
                 Creature cj = c2.get(j);
                 int x = j % 40;
                 int y = floor(j / 40) + 1;
@@ -799,7 +814,7 @@ public class Evolution3WEB extends PApplet {
         if (statusWindow >= 0) {
             cj = c2.get(statusWindow);
             if (menu == 7) {
-                int id = ((cj.id - 1) % 1000);
+                int id = ((cj.id - 1) % CREATURE_COUNT);
                 x = id % 40;
                 y = floor(id / 40);
             } else {
@@ -821,7 +836,7 @@ public class Evolution3WEB extends PApplet {
             px = x;
             py = y;
             rect(x, y, 140, 140);
-            int[] ranks = { 1000, 500, 1 };
+            int[] ranks = { CREATURE_COUNT, 500, 1 };
             rank = ranks[statusWindow + 3];
         }
         noStroke();
@@ -1070,7 +1085,7 @@ public class Evolution3WEB extends PApplet {
             if (timer >= 1020) {
                 setMenu(4);
                 creaturesTested++;
-                if (creaturesTested == 1000) {
+                if (creaturesTested == CREATURE_COUNT) {
                     setMenu(6);
                 }
                 cam = 0;
@@ -1081,17 +1096,17 @@ public class Evolution3WEB extends PApplet {
         }
         if (menu == 6) {
             // sort
-            c2 = new ArrayList<Creature>(0);
-            for (int i = 0; i < 1000; i++) {
-                c2.add(c[i]);
+            c2 = new ArrayList<Creature>(CREATURE_COUNT);
+            for (Creature ci : c) {
+                c2.add(ci);
             }
             c2 = quickSort(c2);
             percentile.add(new Float[29]);
             for (int i = 0; i < 29; i++) {
                 percentile.get(gen + 1)[i] = c2.get(p[i]).getFitness();
             }
-            creatureDatabase.add(c2.get(999).copyCreature(-1));
-            creatureDatabase.add(c2.get(499).copyCreature(-1));
+            creatureDatabase.add(c2.get(CREATURE_COUNT - 1).copyCreature(-1));
+            creatureDatabase.add(c2.get(CREATURE_COUNT / 2 - 1).copyCreature(-1));
             creatureDatabase.add(c2.get(0).copyCreature(-1));
 
             Integer[] beginBar = new Integer[barLen];
@@ -1103,7 +1118,7 @@ public class Evolution3WEB extends PApplet {
             for (int i = 0; i < 101; i++) {
                 beginSpecies[i] = 0;
             }
-            for (int i = 0; i < 1000; i++) {
+            for (int i = 0; i < CREATURE_COUNT; i++) {
                 int bar = floor(c2.get(i).getFitness() * histBarsPerMeter - minBar);
                 if (bar >= 0 && bar < barLen) {
                     barCounts.get(gen + 1)[bar]++;
@@ -1137,9 +1152,9 @@ public class Evolution3WEB extends PApplet {
             camzoom = 0.12f;
             background(220, 253, 102);
             float transition = 0.5f - 0.5f * cos(min(PApplet.parseFloat(timer) / 60, PI));
-            for (int j = 0; j < 1000; j++) {
+            for (int j = 0; j < CREATURE_COUNT; j++) {
                 Creature cj = c2.get(j);
-                int j2 = cj.id - (gen * 1000) - 1;
+                int j2 = cj.id - (gen * CREATURE_COUNT) - 1;
                 int x1 = j2 % 40;
                 int y1 = floor(j2 / 40);
                 int x2 = j % 40;
@@ -1188,7 +1203,7 @@ public class Evolution3WEB extends PApplet {
         if (menu == 10) {
             // Kill!
             for (int j = 0; j < 500; j++) {
-                float f = PApplet.parseFloat(j) / 1000;
+                float f = PApplet.parseFloat(j) / CREATURE_COUNT;
                 float rand = (pow(random(-1, 1), 3) + 1) / 2; // cube function
                 slowDies = (f <= rand);
                 int j2;
@@ -1215,19 +1230,20 @@ public class Evolution3WEB extends PApplet {
         if (menu == 12) { // Reproduce and mutate
             justGotBack = true;
             for (int j = 0; j < 500; j++) {
-                // Creatures are stored in c2 in pairs (x, 500-x). If x is dead, then 500-x is alive and vice versa.
+                // Creatures are stored in c2 in pairs (x, 999-x). If x is dead, then 999-x is alive and vice versa.
                 // The dead creature will be replaced by a modified version of its alive counterpart.
                 int liveIndex, deadIndex;
                 if (!c2.get(j).isAlive()) { // j is dead
-                    liveIndex = 999 - j;
+                    liveIndex = CREATURE_COUNT - 1 - j;
                     deadIndex = j;
                 } else {
                     liveIndex = j;
-                    deadIndex = 999 - j;
+                    deadIndex = CREATURE_COUNT - 1 - j;
                 }
                 Creature liveCreature = c2.get(liveIndex);
                 int deadCreatureId = c2.get(deadIndex).id;
-                Creature offspring = liveCreature.modified(deadCreatureId + 1000, () -> r(), (x, y) -> random(x, y));
+                Creature offspring = liveCreature.modified(deadCreatureId + CREATURE_COUNT, () -> r(),
+                        (x, y) -> random(x, y));
                 offspring.normalize();
                 c2.set(deadIndex, offspring); // mutated
                 // offspring 1
@@ -1236,11 +1252,11 @@ public class Evolution3WEB extends PApplet {
                 //            toStableConfiguration(n.size(), m.size());
                 //          c2.get(999-liveIndex).toStableConfiguration();
                 //        adjustToCenter(n.size());
-                c2.set(liveIndex, liveCreature.copyCreature(liveCreature.id + 1000)); // duplicate
+                c2.set(liveIndex, liveCreature.copyCreature(liveCreature.id + CREATURE_COUNT)); // duplicate
             }
-            for (int j = 0; j < 1000; j++) {
+            for (int j = 0; j < CREATURE_COUNT; j++) {
                 Creature cj = c2.get(j);
-                c[cj.id - (gen * 1000) - 1001] = cj.copyCreature(-1);
+                c[cj.id - (gen * CREATURE_COUNT) - 1001] = cj.copyCreature(-1);
             }
             drawScreenImage(3);
             gen++;
