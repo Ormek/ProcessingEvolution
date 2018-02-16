@@ -9,12 +9,17 @@ import processing.core.PFont;
 import processing.core.PGraphics;
 import processing.event.MouseEvent;
 
+import static evolution.Evolution3WEB.MenuStates.*;
+
 public class Evolution3WEB extends PApplet {
 
     // Number of creature in one generation. Please note, that the program is not fit to handle anything but 1000 here, yet.
     private static final int CREATURE_COUNT = 1000;
 
-    private static final int MENU_CREATE_INITIAL_POPULATION = 2;
+    enum MenuStates {
+        MENU_0_TITLE_PAGE, MENU_1_SHOW_STATS, MENU_2_CREATE_INITIAL_POPULATION, MENU_3_RESET_GEN, MENU_4_SELECT_OR_SIMULATE, MENU_5_SIMULATE_SINGLE_RUNNING, MENU_6_SORT_UPDATE_STATS, MENU_7_SHOW_RESULTS, MENU_8_SHOW_SORTING, MENU_9_SHOW_SORTED_CREATURES, MENU_10_KILL_CREATURES, MENU_11_SHOW_DEAD, MENU_12_REPRODUCE, MENU_13_SHOW_NEW_GENERATION
+    };
+
     // These are the easy-to-edit variables.
     final boolean USE_RANDOM_SEED = true;
     // determines whether random factors will be determined by the preset seed.
@@ -98,7 +103,7 @@ public class Evolution3WEB extends PApplet {
     int timer = 0;
     float cam = 0;
     int frames = 60;
-    int menu = 0;
+    MenuStates menu = MENU_0_TITLE_PAGE;
     int gen = -1;
     float sliderX = 1170;
     int genSelected = 0;
@@ -551,7 +556,7 @@ public class Evolution3WEB extends PApplet {
 
     public void mouseWheel(MouseEvent event) {
         int delta = event.getCount();
-        if (menu == 5) {
+        if (menu == MENU_5_SIMULATE_SINGLE_RUNNING) {
             if (delta == -1) {
                 camzoom *= 0.9090909f;
                 if (camzoom < 0.006f) {
@@ -574,7 +579,7 @@ public class Evolution3WEB extends PApplet {
         }
         float mX = mouseX / WINDOW_SIZE;
         float mY = mouseY / WINDOW_SIZE;
-        if (menu == 1 && gen >= 1 && abs(mY - 365) <= 25 && abs(mX - sliderX - 25) <= 25) {
+        if (menu == MENU_1_SHOW_STATS && gen >= 1 && abs(mY - 365) <= 25 && abs(mX - sliderX - 25) <= 25) {
             drag = true;
         }
     }
@@ -597,15 +602,15 @@ public class Evolution3WEB extends PApplet {
         }
     }
 
-    public void setMenu(int m) {
+    public void setMenu(MenuStates m) {
         menu = m;
-        if (m == 1) {
+        if (m == MENU_1_SHOW_STATS) {
             drawGraph(975, 570);
         }
     }
 
     public void startASAP() {
-        setMenu(4);
+        setMenu(MENU_4_SELECT_OR_SIMULATE);
         creaturesTested = 0;
         stepbystep = false;
         stepbystepslow = false;
@@ -616,42 +621,50 @@ public class Evolution3WEB extends PApplet {
         miniSimulation = false;
         float mX = mouseX / WINDOW_SIZE;
         float mY = mouseY / WINDOW_SIZE;
-        if (menu == 0 && abs(mX - windowWidth / 2) <= 200 && abs(mY - 400) <= 100) {
-            setMenu(1);
-        } else if (menu == 1 && gen == -1 && abs(mX - 120) <= 100 && abs(mY - 300) <= 50) {
-            setMenu(MENU_CREATE_INITIAL_POPULATION);
-        } else if (menu == 1 && gen >= 0 && abs(mX - 990) <= 230) {
+        if (menu == MENU_0_TITLE_PAGE && abs(mX - windowWidth / 2) <= 200 && abs(mY - 400) <= 100) {
+            setMenu(MENU_1_SHOW_STATS);
+        } else if (menu == MENU_1_SHOW_STATS && gen == -1 && abs(mX - 120) <= 100 && abs(mY - 300) <= 50) {
+            setMenu(MENU_2_CREATE_INITIAL_POPULATION);
+        } else if (menu == MENU_1_SHOW_STATS && gen >= 0 && abs(mX - 990) <= 230) {
             if (abs(mY - 40) <= 20) {
-                setMenu(4);
+                // Do 1 step-by-step generation
+                setMenu(MENU_4_SELECT_OR_SIMULATE);
                 creaturesTested = 0;
                 stepbystep = true;
                 stepbystepslow = true;
             }
             if (abs(mY - 90) <= 20) {
-                setMenu(4);
+                // Do 1 quick generation
+                setMenu(MENU_4_SELECT_OR_SIMULATE);
                 creaturesTested = 0;
                 stepbystep = true;
                 stepbystepslow = false;
             }
             if (abs(mY - 140) <= 20) {
+                // Do ASAP
                 if (mX < 990) {
+                    // Do 1 gen ASAP.
                     gensToDo = 1;
                 } else {
+                    // Do gens ALAP.
                     gensToDo = 1000000000;
                 }
-                startASAP();
+                setMenu(MENU_4_SELECT_OR_SIMULATE);
+                creaturesTested = 0;
+                stepbystep = false;
+                stepbystepslow = false;
             }
-        } else if (menu == 3 && abs(mX - 1030) <= 130 && abs(mY - 684) <= 20) {
+        } else if (menu == MENU_3_RESET_GEN && abs(mX - 1030) <= 130 && abs(mY - 684) <= 20) {
             gen = 0;
-            setMenu(1);
-        } else if (menu == 7 && abs(mX - 1030) <= 130 && abs(mY - 684) <= 20) {
-            setMenu(8);
-        } else if (menu == 9 && abs(mX - 1030) <= 130 && abs(mY - 690) <= 20) {
-            setMenu(10);
-        } else if (menu == 11 && abs(mX - 1130) <= 80 && abs(mY - 690) <= 20) {
-            setMenu(12);
-        } else if (menu == 13 && abs(mX - 1130) <= 80 && abs(mY - 690) <= 20) {
-            setMenu(1);
+            setMenu(MENU_1_SHOW_STATS);
+        } else if (menu == MENU_7_SHOW_RESULTS && abs(mX - 1030) <= 130 && abs(mY - 684) <= 20) {
+            setMenu(MENU_8_SHOW_SORTING);
+        } else if (menu == MENU_9_SHOW_SORTED_CREATURES && abs(mX - 1030) <= 130 && abs(mY - 690) <= 20) {
+            setMenu(MENU_10_KILL_CREATURES);
+        } else if (menu == MENU_11_SHOW_DEAD && abs(mX - 1130) <= 80 && abs(mY - 690) <= 20) {
+            setMenu(MENU_12_REPRODUCE);
+        } else if (menu == MENU_13_SHOW_NEW_GENERATION && abs(mX - 1130) <= 80 && abs(mY - 690) <= 20) {
+            setMenu(MENU_1_SHOW_STATS);
         }
     }
 
@@ -707,6 +720,7 @@ public class Evolution3WEB extends PApplet {
                 if (cj.isAlive()) {
                     cj.drawCreatureWhole(x * 30 + 55, y * 25 + 40, 0, this);
                 } else {
+                    screenImage.fill(0);
                     screenImage.rect(x * 30 + 40, y * 25 + 17, 30, 25);
                 }
             }
@@ -813,7 +827,7 @@ public class Evolution3WEB extends PApplet {
         noFill();
         if (statusWindow >= 0) {
             cj = c2.get(statusWindow);
-            if (menu == 7) {
+            if (menu == MENU_7_SHOW_RESULTS) {
                 int id = ((cj.id - 1) % CREATURE_COUNT);
                 x = id % 40;
                 y = floor(id / 40);
@@ -926,7 +940,7 @@ public class Evolution3WEB extends PApplet {
 
     public void draw() {
         scale(1);
-        if (menu == 0) {
+        if (menu == MENU_0_TITLE_PAGE) {
             background(255);
             fill(100, 200, 100);
             noStroke();
@@ -934,7 +948,7 @@ public class Evolution3WEB extends PApplet {
             fill(0);
             text("EVOLUTION!", windowWidth / 2, 200);
             text("START", windowWidth / 2, 430);
-        } else if (menu == 1) {
+        } else if (menu == MENU_1_SHOW_STATS) {
             noStroke();
             fill(0);
             background(255, 200, 130);
@@ -987,7 +1001,7 @@ public class Evolution3WEB extends PApplet {
                     startASAP();
                 }
             }
-        } else if (menu == MENU_CREATE_INITIAL_POPULATION) {
+        } else if (menu == MENU_2_CREATE_INITIAL_POPULATION) {
             camzoom = 0.12f;
             background(220, 253, 102);
             // Create 25 x 40 = 1000 creatures
@@ -1004,7 +1018,7 @@ public class Evolution3WEB extends PApplet {
                     c[id].drawCreatureWhole(x * 30 + 55, y * 25 + 30, 0, this);
                 }
             }
-            setMenu(3);
+            setMenu(MENU_3_RESET_GEN);
             noStroke();
             fill(100, 100, 200);
             rect(900, 664, 260, 40);
@@ -1013,10 +1027,10 @@ public class Evolution3WEB extends PApplet {
             textFont(font, 24);
             text("Here are your 1000 randomly generated creatures!!!", windowWidth / 2 - 200, 690);
             text("Back", windowWidth - 250, 690);
-        } else if (menu == 4) {
+        } else if (menu == MENU_4_SELECT_OR_SIMULATE) {
             setGlobalVariables(c[creaturesTested]);
             camzoom = 0.01f;
-            setMenu(5);
+            setMenu(MENU_5_SIMULATE_SINGLE_RUNNING);
             if (stepbystepslow) {
                 if (creaturesTested <= 4) {
                     speed = max(creaturesTested, 1);
@@ -1025,10 +1039,10 @@ public class Evolution3WEB extends PApplet {
                 }
             } else {
                 ParallelSimulation.simulateFitness(c, rects);
-                setMenu(6);
+                setMenu(MENU_6_SORT_UPDATE_STATS);
             }
         }
-        if (menu == 5) { // simulate running
+        if (menu == MENU_5_SIMULATE_SINGLE_RUNNING) { // simulate running
             if (timer <= 900) {
                 textAlign(CENTER);
                 textFont(font, 0.96f / camzoom);
@@ -1083,10 +1097,10 @@ public class Evolution3WEB extends PApplet {
                 c[creaturesTested].setFitness(average * 0.2f);
             }
             if (timer >= 1020) {
-                setMenu(4);
+                setMenu(MENU_4_SELECT_OR_SIMULATE);
                 creaturesTested++;
                 if (creaturesTested == CREATURE_COUNT) {
-                    setMenu(6);
+                    setMenu(MENU_6_SORT_UPDATE_STATS);
                 }
                 cam = 0;
             }
@@ -1094,7 +1108,7 @@ public class Evolution3WEB extends PApplet {
                 timer += speed;
             }
         }
-        if (menu == 6) {
+        if (menu == MENU_6_SORT_UPDATE_STATS) {
             // sort
             c2 = new ArrayList<Creature>(CREATURE_COUNT);
             for (Creature ci : c) {
@@ -1142,12 +1156,12 @@ public class Evolution3WEB extends PApplet {
             topSpeciesCounts.add(holder);
             if (stepbystep) {
                 drawScreenImage(0);
-                setMenu(7);
+                setMenu(MENU_7_SHOW_RESULTS);
             } else {
-                setMenu(10);
+                setMenu(MENU_10_KILL_CREATURES);
             }
         }
-        if (menu == 8) {
+        if (menu == MENU_8_SHOW_SORTING) {
             // cool sorting animation
             camzoom = 0.12f;
             background(220, 253, 102);
@@ -1170,16 +1184,18 @@ public class Evolution3WEB extends PApplet {
             }
             if (timer > 60 * PI) {
                 drawScreenImage(1);
-                setMenu(9);
+                setMenu(MENU_9_SHOW_SORTED_CREATURES);
             }
         }
         float mX = mouseX / WINDOW_SIZE;
         float mY = mouseY / WINDOW_SIZE;
-        if (abs(menu - 9) <= 2 && gensToDo == 0 && !drag) {
+        if ((menu == MENU_7_SHOW_RESULTS || menu == MENU_8_SHOW_SORTING || menu == MENU_9_SHOW_SORTED_CREATURES
+                || menu == MENU_10_KILL_CREATURES || menu == MENU_11_SHOW_DEAD) && gensToDo == 0 && !drag) {
             if (abs(mX - 639.5f) <= 599.5f) {
-                if (menu == 7 && abs(mY - 329) <= 312) {
+                if (menu == MENU_7_SHOW_RESULTS && abs(mY - 329) <= 312) {
                     statusWindow = creaturesInPosition[floor((mX - 40) / 30) + floor((mY - 17) / 25) * 40];
-                } else if (menu >= 9 && abs(mY - 354) <= 312) {
+                } else if ((menu == MENU_9_SHOW_SORTED_CREATURES || menu == MENU_10_KILL_CREATURES
+                        || menu == MENU_11_SHOW_DEAD || menu == MENU_12_REPRODUCE || menu == MENU_13_SHOW_NEW_GENERATION) && abs(mY - 354) <= 312) {
                     statusWindow = floor((mX - 40) / 30) + floor((mY - 42) / 25) * 40;
                 } else {
                     statusWindow = -4;
@@ -1187,7 +1203,7 @@ public class Evolution3WEB extends PApplet {
             } else {
                 statusWindow = -4;
             }
-        } else if (menu == 1 && genSelected >= 1 && gensToDo == 0 && !drag) {
+        } else if (menu == MENU_1_SHOW_STATS && genSelected >= 1 && gensToDo == 0 && !drag) {
             statusWindow = -4;
             if (abs(mY - 250) <= 70) {
                 if (abs(mX - 990) <= 230) {
@@ -1200,7 +1216,7 @@ public class Evolution3WEB extends PApplet {
         } else {
             statusWindow = -4;
         }
-        if (menu == 10) {
+        if (menu == MENU_10_KILL_CREATURES) {
             // Kill!
             for (int j = 0; j < 500; j++) {
                 float f = PApplet.parseFloat(j) / CREATURE_COUNT;
@@ -1217,12 +1233,12 @@ public class Evolution3WEB extends PApplet {
             }
             if (stepbystep) {
                 drawScreenImage(2);
-                setMenu(11);
+                setMenu(MENU_11_SHOW_DEAD);
             } else {
-                setMenu(12);
+                setMenu(MENU_12_REPRODUCE);
             }
         }
-        if (menu == 12) { // Reproduce and mutate
+        if (menu == MENU_12_REPRODUCE) { // Reproduce and mutate
             justGotBack = true;
             for (int j = 0; j < 500; j++) {
                 // Creatures are stored in c2 in pairs (x, 999-x). If x is dead, then 999-x is alive and vice versa.
@@ -1255,15 +1271,17 @@ public class Evolution3WEB extends PApplet {
             PerfRecorder.instance().setLabel("Gen " + gen + ", median: " + median + "m took: ");
             PerfRecorder.instance().recordIteration();
             if (stepbystep) {
-                setMenu(13);
+                setMenu(MENU_13_SHOW_NEW_GENERATION);
             } else {
-                setMenu(1);
+                setMenu(MENU_1_SHOW_STATS);
             }
         }
-        if (menu % 2 == 1 && abs(menu - 10) <= 3) {
+        if ( // menu % 2 == 1 && abs(menu - 10) <= 3
+        menu == MENU_13_SHOW_NEW_GENERATION || menu == MENU_11_SHOW_DEAD | menu == MENU_9_SHOW_SORTED_CREATURES
+                || menu == MENU_7_SHOW_RESULTS) {
             image(screenImage, 0, 0, windowWidth, windowHeight);
         }
-        if (menu == 1 || gensToDo >= 1) {
+        if (menu == MENU_1_SHOW_STATS || gensToDo >= 1) {
             mX = mouseX / WINDOW_SIZE;
             mY = mouseY / WINDOW_SIZE;
             noStroke();
