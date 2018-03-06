@@ -34,7 +34,7 @@ public class PerfRecorder {
 	}
 
 	public PerfRecorder() {
-		final SimpleDateFormat form = new SimpleDateFormat("yyMMdd-HHmmss");
+		final SimpleDateFormat form = new SimpleDateFormat("yyMMdd-HHmmssSSS");
 		final Date now = new Date();
 		init("It took: ", "performance\\perf_" + form.format(now));
 	}
