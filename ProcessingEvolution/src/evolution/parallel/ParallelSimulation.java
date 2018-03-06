@@ -6,6 +6,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import de.my.performance.PerfRecorder;
 import evolution.Creature;
 import evolution.Rectangle;
 
@@ -139,6 +140,10 @@ public class ParallelSimulation {
         }
     }
     
+    static PerfRecorder p = new PerfRecorder();
+    static {
+        p.setLabel("Just the simulation took: ");
+    }
     
     /**
      * @param cs
@@ -147,7 +152,9 @@ public class ParallelSimulation {
      *            Obstacles for the creatures.
      */
     public static void simulateFitness(Creature[] cs, final List<? extends Rectangle> rects) {
+        p.startTiming();
         simulateFitnessSingle(cs, rects);
+        p.stopTiming();
     }
 
 }
