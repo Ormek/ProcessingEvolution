@@ -5,6 +5,10 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import de.my.performance.PerfRecorder;
 import evolution.Creature;
@@ -112,6 +116,19 @@ public class ParallelSimulation {
         }
     }
     
+    private static void simulateFitnessSingle(Stream<? extends Creature> cs, final List<? extends Rectangle> rects) {
+        List<Callable<Object>> simulators =  cs.filter(c->!c.hasBeenTested())
+                .map(c->new SimulateSingleCreature(c, rects))
+                .collect(Collectors.toList());
+        try {
+            threadPoolExecutor.invokeAll(simulators);
+        } catch (InterruptedException e) {
+            // Our threads have been interrupted. What shall we do? 
+            // Let's abort
+            throw new RuntimeException("ThreadPool got interrupted. This is an unexpected error.", e);
+        }
+    }
+
     /**
      * Simulate a set of creatures using multiple creatures per runnable. By having multiple creatures per simulator less runnables are involved resulting in less thread switching.
      * @param cs
@@ -165,5 +182,11 @@ public class ParallelSimulation {
         simulateFitnessSingle(cs, rects);
         p.stopTiming();
     }
-
+    
+    public static void simulateFitness(Stream<? extends Creature> cs, final List<? extends Rectangle> rects) {
+        p.startTiming();
+        simulateFitnessSingle(cs, rects);
+        p.stopTiming();
+    }
+    
 }
