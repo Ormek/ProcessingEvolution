@@ -73,6 +73,7 @@ public class EvolutionSimulator implements Runnable {
             generation++;
             
             if (generation %100 == 0) {
+                p.setLabel(statusMessage()+"It took: ");
                 p.recordIteration();
             }
             
@@ -159,11 +160,15 @@ public class EvolutionSimulator implements Runnable {
     }
 
     private void reportProgress() {
+        System.out.println(statusMessage());
+        //requestUpdate = false;
+    }
+    
+    private String statusMessage() {
         final float best = population.get(0).getFitness();
         final float worst = population.get(population.size() - 1).getFitness();
         final float median = population.get(population.size() / 2).getFitness();
-        System.out.println("Generation: " + generation + " Best: " + best + " Median: " + median + " Worst: " + worst);
-        //requestUpdate = false;
+        return "Generation: " + generation + " Best: " + best + " Median: " + median + " Worst: " + worst;
     }
 
 }
