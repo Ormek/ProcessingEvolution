@@ -60,10 +60,15 @@ public class Muscle {
         // The value -0.4 looks suspicious. Maybe it is the now constant mass/size of any node?
         // Yet, it seems to be an upper and lower bound on the force. Still...
         float force = Evolution3WEB.min(Evolution3WEB.max(1 - (distance / target), -0.4f), 0.4f);
-        ni1.vx += Evolution3WEB.cos(angle) * force * rigidity / ni1.m; // This .m is 0.4 always!
-        ni1.vy += Evolution3WEB.sin(angle) * force * rigidity / ni1.m;
-        ni2.vx -= Evolution3WEB.cos(angle) * force * rigidity / ni2.m;
-        ni2.vy -= Evolution3WEB.sin(angle) * force * rigidity / ni2.m;
+        
+        assert(ni1.m==0.4f);
+        assert(ni2.m==0.4f);
+        final float boostX = Evolution3WEB.cos(angle) * force * rigidity / 0.4f;
+        final float boostY = Evolution3WEB.sin(angle) * force * rigidity / 0.4f;
+        ni1.vx += boostX; 
+        ni1.vy += boostY;
+        ni2.vx -= boostX;
+        ni2.vy -= boostY;
     }
 
     public Muscle copyMuscle() {
