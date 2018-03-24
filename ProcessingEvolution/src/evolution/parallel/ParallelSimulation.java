@@ -10,10 +10,18 @@ import de.my.performance.PerfRecorder;
 import evolution.Creature;
 import evolution.Rectangle;
 
+/**
+ * This class can update the distance of a set of creatures. The simulation runs in parallel with a fixed number of threads.
+ * @author Oliver Meyer
+ *
+ */
 public class ParallelSimulation {
 
     private static final int THREAD_COUNT = 8;
     private static ExecutorService threadPoolExecutor = Executors.newFixedThreadPool(THREAD_COUNT);
+
+    /** Private constructor because no instance of ParallelSimulation is needed **/
+    private ParallelSimulation() {};
 
     private static class SimulateSetOfCreatures implements Callable<Object> {
         private Iterable<Creature> creatures;
@@ -105,6 +113,7 @@ public class ParallelSimulation {
     }
     
     /**
+     * Simulate a set of creatures using multiple creatures per runnable. By having multiple creatures per simulator less runnables are involved resulting in less thread switching.
      * @param cs
      *            Array of creatures. Their Distance will get updated.
      * @param rects
