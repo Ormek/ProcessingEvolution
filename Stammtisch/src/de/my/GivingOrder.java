@@ -115,11 +115,11 @@ public class GivingOrder {
 				} else {
 					switch (from) {
 					case Andrea:
-						// Hat Susanne 2016 beschenkt
 						// Ist mit Markus ein Paar
 						switch (to) {
 						case Markus: // <3
 						case Susanne: // 2016
+						case Vera: // 2017
 							value = false;
 							break;
 						default:
@@ -127,11 +127,11 @@ public class GivingOrder {
 						}
 						break;
 					case Jochen:
-						// Hat 2015 Susanne und 2016 Andrea beschenkt
 						// Ist mit Vera verheiratet
 						switch (to) {
 						case Susanne: // 2015
 						case Andrea: // 2016
+						case Oliver: // 2017
 						case Vera: // <3
 							value = false;
 							break;
@@ -140,12 +140,12 @@ public class GivingOrder {
 						}
 						break;
 					case Markus:
-						// Hat Jochen 2015 und Vera 2016 beschenkt
 						// Ist mit Andrea ein Paar
 						switch (to) {
 						case Andrea: // <3
 						case Jochen: // 2015
 						case Vera: // 2016
+						case Susanne: // 2017
 							value = false;
 							break;
 						default:
@@ -153,11 +153,11 @@ public class GivingOrder {
 						}
 						break;
 					case Martin:
-						// Hat 2015 Simone und 2016 Oliver beschenkt
 						// Ist mit Susanne verheiratet
 						switch (to) {
 						case Simone: // 2015
 						case Oliver: // 2016
+						case Jochen: // 2017
 						case Susanne: // <3
 							value = false;
 							break;
@@ -166,9 +166,9 @@ public class GivingOrder {
 						}
 						break;
 					case Oliver:
-						// Hat Markus 2015 und Jochen 2016 beschenkt
 						// Liebt Simone
 						switch (to) {
+						case Martin: // 2017
 						case Jochen: // 2016
 						case Markus: // 2015
 						case Simone: // <3
@@ -179,11 +179,11 @@ public class GivingOrder {
 						}
 						break;
 					case Simone:
-						// Hat 2015 Vera und 2016 Martin beschenkt
 						// Ist mit Oliver ein Paar
 						switch (to) {
 						case Vera: // 2015
 						case Martin: // 2016
+						case Andrea: // 2017
 						case Oliver: // <3
 							value = false;
 							break;
@@ -192,9 +192,9 @@ public class GivingOrder {
 						}
 						break;
 					case Susanne:
-						// Hat 2015 Oliver und 2016 Markus beschenkt
 						// Ist mit Martin verheiratet
 						switch (to) {
+						case Simone: // 2017
 						case Markus: // 2016
 						case Oliver: // 2015
 						case Martin: // <3
@@ -205,9 +205,9 @@ public class GivingOrder {
 						}
 						break;
 					case Vera:
-						// Hat 2016 Simone und 2015 Martin beschenkt
 						// Ist mit Jochen verheiratet
 						switch (to) {
+						case Markus: // 2017
 						case Simone: // 2016
 						case Martin: // 2015
 						case Jochen: // <3
