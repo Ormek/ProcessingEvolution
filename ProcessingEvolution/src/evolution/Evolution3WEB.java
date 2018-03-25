@@ -1,8 +1,10 @@
 package evolution;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import de.my.performance.PerfRecorder;
+import evolution.parallel.EvolutionSimulator;
 import evolution.parallel.ParallelSimulation;
 import processing.core.PApplet;
 import processing.core.PFont;
@@ -1018,6 +1020,9 @@ public class Evolution3WEB extends PApplet {
                     c[id].drawCreatureWhole(x * 30 + 55, y * 25 + 30, 0, this);
                 }
             }
+            EvolutionSimulator es = new EvolutionSimulator(Arrays.stream(c), rects.stream());
+            es.run();
+            
             setMenu(MENU_3_RESET_GEN);
             noStroke();
             fill(100, 100, 200);

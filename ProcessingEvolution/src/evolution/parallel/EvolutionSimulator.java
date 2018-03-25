@@ -67,15 +67,18 @@ public class EvolutionSimulator implements Runnable {
     @Override
     public void run() {
         p.startTiming();
+        mainLoop();
+    }
+
+
+
+    private void mainLoop() {
         while (true) {
             // Update the fitness of the creatures, that is, make them experience the environment
             ParallelSimulation.simulateFitness(population.stream(), rects);
             generation++;
             
-            if (generation %100 == 0) {
-                p.setLabel(statusMessage()+"It took: ");
-                p.recordIteration();
-            }
+            logPerformance();
             
             // Sort them
             sortPopulation();
@@ -94,6 +97,15 @@ public class EvolutionSimulator implements Runnable {
             
             // Regrow, that is mutate the survivors
             regrow();
+        }
+    }
+
+
+
+    private void logPerformance() {
+        if (generation %100 == 0) {
+            p.setLabel(statusMessage()+"It took: ");
+            p.recordIteration();
         }
     }
     
