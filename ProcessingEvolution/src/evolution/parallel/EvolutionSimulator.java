@@ -14,7 +14,8 @@ import evolution.Rectangle;
 
 /**
  * Simulate the evolution of creatures in a static environment. Input is a set of creatures and an environment. This
- * class will spawn threads to evolve the creatures, through adaptation to the environment. Class does not care about creature ids.
+ * class will spawn threads to evolve the creatures, through adaptation to the environment. Class does not care about
+ * creature ids.
  * 
  * @author Oliver Meyer
  *
@@ -55,11 +56,9 @@ public class EvolutionSimulator implements Runnable {
         if (CREATURE_COUNT % 2 == 1 || CREATURE_COUNT == 0) {
             throw new IllegalArgumentException("EvolutionSimulator requires an even number of creatures.");
         }
-            p.setLabel("Simulating 100 generations took: ");
+        p.setLabel("Simulating 100 generations took: ");
 
     }
-    
-
 
     /**
      * Start the evolution of the creatures.
@@ -70,19 +69,17 @@ public class EvolutionSimulator implements Runnable {
         mainLoop();
     }
 
-
-
     private void mainLoop() {
         while (true) {
             // Update the fitness of the creatures, that is, make them experience the environment
             ParallelSimulation.simulateFitness(population.stream(), rects);
             generation++;
-            
+
             logPerformance();
-            
+
             // Sort them
             sortPopulation();
-            
+
             // Update -- if requested
             if (requestUpdate) {
                 reportProgress();
@@ -91,26 +88,24 @@ public class EvolutionSimulator implements Runnable {
             if (requestStop) {
                 break;
             }
-            
+
             // Selection, that is let half the population die
             naturalSelection();
-            
+
             // Regrow, that is mutate the survivors
             regrow();
         }
     }
 
-
-
     private void logPerformance() {
-        if (generation %100 == 0) {
-            p.setLabel(statusMessage()+"It took: ");
+        if (generation % 100 == 0) {
+            p.setLabel(statusMessage() + "It took: ");
             p.recordIteration();
         }
     }
-    
+
     private float r() {
-        return (float)Math.pow(random(-1, 1), 19.0);
+        return (float) Math.pow(random(-1, 1), 19.0);
     }
 
     private void regrow() {
@@ -126,8 +121,7 @@ public class EvolutionSimulator implements Runnable {
                 deadIndex = CREATURE_COUNT - 1 - i;
             }
             Creature liveCreature = population.get(liveIndex);
-            Creature offspring = liveCreature.modified(0, () -> r(),
-                    (x, y) -> random(x, y));
+            Creature offspring = liveCreature.modified(0, () -> r(), (x, y) -> random(x, y));
             population.set(deadIndex, offspring); // mutated
         }
     }
@@ -137,7 +131,7 @@ public class EvolutionSimulator implements Runnable {
     private float random(float low, float high) {
         float value;
         final float diff = high - low;
-        if (diff==0) {
+        if (diff == 0) {
             return low;
         }
         do {
@@ -175,7 +169,7 @@ public class EvolutionSimulator implements Runnable {
         System.out.println(statusMessage());
         //requestUpdate = false;
     }
-    
+
     private String statusMessage() {
         final float best = population.get(0).getFitness();
         final float worst = population.get(population.size() - 1).getFitness();
