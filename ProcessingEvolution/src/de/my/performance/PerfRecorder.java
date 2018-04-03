@@ -27,8 +27,12 @@ public class PerfRecorder {
     private InternalState state = NotStarted;
     private String label;
 
-    static private PerfRecorder singleton = new PerfRecorder();
+    static private PerfRecorder singleton = new PerfRecorder("Singleton");
 
+    /**
+     * Return precreated singleton instance.
+     * @return the one special perfrecorder
+     */
     public static PerfRecorder instance() {
         return singleton;
     }
@@ -43,7 +47,7 @@ public class PerfRecorder {
 
     /**
      * Create new Performance recorder with default label and customized filename. The file used follows the same
-     * conventions as the default filename used with {@link #PerfRecorder()}, but also has a specific prefix. 
+     * conventions as the default filename used with {@link #PerfRecorder()}, but also has a specific prefix.
      * 
      * @param filePrefix
      */
