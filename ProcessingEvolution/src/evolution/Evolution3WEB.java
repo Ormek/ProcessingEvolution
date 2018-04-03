@@ -94,8 +94,8 @@ public class Evolution3WEB extends PApplet {
     };
 
     float histMinValue = -1; // histogram information
-    float histMaxValue = 8;
-    int histBarsPerMeter = 10;
+    float histMaxValue = 25;
+    int histBarsPerMeter = 2;
 
     // Okay, that's all the easy to edit stuff.
 
