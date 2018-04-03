@@ -69,8 +69,8 @@ public class Evolution3WEB extends PApplet {
     };
 
     float histMinValue = -1; // histogram information
-    float histMaxValue = 8;
-    int histBarsPerMeter = 10;
+    float histMaxValue = 25;
+    int histBarsPerMeter = 2;
 
     // Okay, that's all the easy to edit stuff.
 
@@ -1020,8 +1020,8 @@ public class Evolution3WEB extends PApplet {
                     c[id].drawCreatureWhole(x * 30 + 55, y * 25 + 30, 0, this);
                 }
             }
-            EvolutionSimulator es = new EvolutionSimulator(Arrays.stream(c), rects.stream());
-            es.run();
+            //EvolutionSimulator es = new EvolutionSimulator(Arrays.stream(c), rects.stream());
+            //es.run();
             
             setMenu(MENU_3_RESET_GEN);
             noStroke();
