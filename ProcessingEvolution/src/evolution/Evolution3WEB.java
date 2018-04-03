@@ -2,6 +2,8 @@ package evolution;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 import de.my.performance.PerfRecorder;
 import evolution.parallel.EvolutionSimulator;
@@ -19,7 +21,30 @@ public class Evolution3WEB extends PApplet {
     private static final int CREATURE_COUNT = 1000;
 
     enum MenuStates {
-        MENU_0_TITLE_PAGE, MENU_1_SHOW_STATS, MENU_2_CREATE_INITIAL_POPULATION, MENU_3_RESET_GEN, MENU_4_SELECT_OR_SIMULATE, MENU_5_SIMULATE_SINGLE_RUNNING, MENU_6_SORT_UPDATE_STATS, MENU_7_SHOW_RESULTS, MENU_8_SHOW_SORTING, MENU_9_SHOW_SORTED_CREATURES, MENU_10_KILL_CREATURES, MENU_11_SHOW_DEAD, MENU_12_REPRODUCE, MENU_13_SHOW_NEW_GENERATION
+        MENU_0_TITLE_PAGE,
+        /**
+         * Showing the current status and waiting for user to do something.
+         */
+        MENU_1_SHOW_STATS, MENU_2_CREATE_INITIAL_POPULATION, MENU_3_RESET_GEN, MENU_4_SELECT_OR_SIMULATE,
+        MENU_5_SIMULATE_SINGLE_RUNNING, MENU_6_SORT_UPDATE_STATS, MENU_7_SHOW_RESULTS, MENU_8_SHOW_SORTING,
+        MENU_9_SHOW_SORTED_CREATURES, MENU_10_KILL_CREATURES, MENU_11_SHOW_DEAD, MENU_12_REPRODUCE,
+        MENU_13_SHOW_NEW_GENERATION,
+        /**
+         * Only used in {@linkplain Modes#BACKGROUND} mode. Waiting to receive the next generation.
+         */
+        MENU_14_WAIT_FOR_GEN
+    };
+
+    enum Modes {
+        /**
+         * Step through generation evolution in AWT Thread, that is, do the evolution in
+         * {@linkplain Evolution3WEB#draw()} cycle.
+         */
+        FOREGROUND,
+        /**
+         * Do the evolution in the background and use AWT Thread to display the results only.
+         */
+        BACKGROUND
     };
 
     // These are the easy-to-edit variables.
@@ -104,7 +129,6 @@ public class Evolution3WEB extends PApplet {
     int windowHeight = 720;
     int timer = 0;
     float cam = 0;
-    int frames = 60;
     MenuStates menu = MENU_0_TITLE_PAGE;
     int gen = -1;
     float sliderX = 1170;
@@ -131,6 +155,8 @@ public class Evolution3WEB extends PApplet {
     boolean slowDies;
     int timeShow;
     int[] p;
+
+    Modes runMode = Modes.FOREGROUND;
 
     public Evolution3WEB() {
         super();
@@ -1020,9 +1046,6 @@ public class Evolution3WEB extends PApplet {
                     c[id].drawCreatureWhole(x * 30 + 55, y * 25 + 30, 0, this);
                 }
             }
-            EvolutionSimulator es = new EvolutionSimulator(Arrays.stream(c), rects.stream());
-            es.run();
-            
             setMenu(MENU_3_RESET_GEN);
             noStroke();
             fill(100, 100, 200);
@@ -1042,10 +1065,22 @@ public class Evolution3WEB extends PApplet {
                 } else {
                     speed = min(creaturesTested * 3 - 9, 1000);
                 }
-            } else {
-                ParallelSimulation.simulateFitness(c, rects);
-                setMenu(MENU_6_SORT_UPDATE_STATS);
-            }
+            } else
+                switch (runMode) {
+                case FOREGROUND: {
+                    ParallelSimulation.simulateFitness(c, rects);
+                    setMenu(MENU_6_SORT_UPDATE_STATS);
+                    break;
+                }
+                case BACKGROUND: {
+                    // Start Background thread.
+                    BlockingQueue<Result> resultBuffer = new ArrayBlockingQueue<Result>(100, false);
+                    EvolutionSimulator es = new EvolutionSimulator(Arrays.stream(c), rects.stream(), resultBuffer,
+                            gensToDo);
+                    es.run();
+                    setMenu(MENU_14_WAIT_FOR_GEN);
+                }
+                }
         }
         if (menu == MENU_5_SIMULATE_SINGLE_RUNNING) { // simulate running
             if (timer <= 900) {
@@ -1120,45 +1155,60 @@ public class Evolution3WEB extends PApplet {
                 c2.add(ci);
             }
             c2 = quickSort(c2);
-            percentile.add(new Float[29]);
-            for (int i = 0; i < 29; i++) {
-                percentile.get(gen + 1)[i] = c2.get(p[i]).getFitness();
-            }
-            creatureDatabase.add(c2.get(CREATURE_COUNT - 1).copyCreature(-1));
-            creatureDatabase.add(c2.get(CREATURE_COUNT / 2 - 1).copyCreature(-1));
-            creatureDatabase.add(c2.get(0).copyCreature(-1));
+            updatePercentile();
+            storeCreatureSamples();
 
-            Integer[] beginBar = new Integer[barLen];
+            // Create Histogram which consists of bars
+            Integer[] currentBars = new Integer[barLen];
             for (int i = 0; i < barLen; i++) {
-                beginBar[i] = 0;
+                currentBars[i] = 0;
             }
-            barCounts.add(beginBar);
-            Integer[] beginSpecies = new Integer[101];
+            // Create Species counter: Values is the number of creatures of that species in the current generation.
+            Integer[] speciesCount = new Integer[101];
             for (int i = 0; i < 101; i++) {
-                beginSpecies[i] = 0;
+                speciesCount[i] = 0;
             }
             for (int i = 0; i < CREATURE_COUNT; i++) {
+                // Find bar for this creature, this bar need not exist!
                 int bar = floor(c2.get(i).getFitness() * histBarsPerMeter - minBar);
                 if (bar >= 0 && bar < barLen) {
-                    barCounts.get(gen + 1)[bar]++;
+                    // if it does exist, increase it
+                    currentBars[bar]++;
                 }
+
+                // Increase Species counter
                 int species = c2.get(i).getSpecies();
-                beginSpecies[species]++;
+                speciesCount[species]++;
             }
-            speciesCounts.add(new Integer[101]);
-            speciesCounts.get(gen + 1)[0] = 0;
-            int cum = 0;
+            // Nothing more to do with the histogram, store it.
+            barCounts.add(currentBars);
+
+            /*
+             * Create stacked lined graph over species The stacked line graph describes regions per Species. The first
+             * region extends from stacked[0] to stacked[1], where stacked[1] is the count of species "00". The next
+             * region extends from stacked[1] to stacked[2] where stacked[2] is the count of species "01"+ the count of
+             * all "smaller" species, which is actually stacked[1].
+             * 
+             * Therefore, stacked[i+1] = stacked[i]+countOfSpecies(i)
+             */
+            Integer stackedSpeciesGraph[] = new Integer[101];
+            stackedSpeciesGraph[0] = 0; // 
             int record = 0;
-            int holder = 0;
-            for (int i = 0; i < 100; i++) {
-                cum += beginSpecies[i];
-                speciesCounts.get(gen + 1)[i + 1] = cum;
-                if (beginSpecies[i] > record) {
-                    record = beginSpecies[i];
-                    holder = i;
+            int recordHolder = 0;
+            for (int species = 0; species < 100; species++) {
+                final Integer currentSpeciesCount = speciesCount[species];
+
+                stackedSpeciesGraph[species + 1] = stackedSpeciesGraph[species] + currentSpeciesCount;
+                if (currentSpeciesCount > record) {
+                    record = currentSpeciesCount;
+                    recordHolder = species;
                 }
             }
-            topSpeciesCounts.add(holder);
+            // Store graph and record
+            speciesCounts.add(stackedSpeciesGraph);
+            topSpeciesCounts.add(recordHolder);
+
+            // Continue
             if (stepbystep) {
                 drawScreenImage(0);
                 setMenu(MENU_7_SHOW_RESULTS);
@@ -1200,7 +1250,8 @@ public class Evolution3WEB extends PApplet {
                 if (menu == MENU_7_SHOW_RESULTS && abs(mY - 329) <= 312) {
                     statusWindow = creaturesInPosition[floor((mX - 40) / 30) + floor((mY - 17) / 25) * 40];
                 } else if ((menu == MENU_9_SHOW_SORTED_CREATURES || menu == MENU_10_KILL_CREATURES
-                        || menu == MENU_11_SHOW_DEAD || menu == MENU_12_REPRODUCE || menu == MENU_13_SHOW_NEW_GENERATION) && abs(mY - 354) <= 312) {
+                        || menu == MENU_11_SHOW_DEAD || menu == MENU_12_REPRODUCE
+                        || menu == MENU_13_SHOW_NEW_GENERATION) && abs(mY - 354) <= 312) {
                     statusWindow = floor((mX - 40) / 30) + floor((mY - 42) / 25) * 40;
                 } else {
                     statusWindow = -4;
@@ -1336,6 +1387,19 @@ public class Evolution3WEB extends PApplet {
             }
         }
         overallTimer++;
+    }
+
+    private void storeCreatureSamples() {
+        creatureDatabase.add(c2.get(CREATURE_COUNT - 1).copyCreature(-1));
+        creatureDatabase.add(c2.get(CREATURE_COUNT / 2 - 1).copyCreature(-1));
+        creatureDatabase.add(c2.get(0).copyCreature(-1));
+    }
+
+    private void updatePercentile() {
+        percentile.add(new Float[29]);
+        for (int i = 0; i < 29; i++) {
+            percentile.get(gen + 1)[i] = c2.get(p[i]).getFitness();
+        }
     }
 
     static public void main(String[] passedArgs) {
