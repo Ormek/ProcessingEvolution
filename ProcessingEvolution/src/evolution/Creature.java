@@ -8,7 +8,7 @@ import processing.core.PApplet;
 
 import static evolution.Evolution3WEB.*;
 
-public class Creature {
+public class Creature implements Cloneable {
     private ArrayList<Node> n;
     private ArrayList<Muscle> m;
     private float fitness;
@@ -292,6 +292,11 @@ public class Creature {
         copy.fitness = this.fitness;
         copy.tested = this.tested;
         return copy;
+    }
+    
+    @Override
+    public Creature clone() {
+        return copyCreature(-1);
     }
 
     /**

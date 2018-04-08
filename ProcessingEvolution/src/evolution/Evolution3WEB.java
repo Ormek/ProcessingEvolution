@@ -1,5 +1,7 @@
 package evolution;
 
+import static evolution.Evolution3WEB.MenuStates.*;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -12,8 +14,6 @@ import processing.core.PApplet;
 import processing.core.PFont;
 import processing.core.PGraphics;
 import processing.event.MouseEvent;
-
-import static evolution.Evolution3WEB.MenuStates.*;
 
 public class Evolution3WEB extends PApplet {
 
@@ -93,14 +93,13 @@ public class Evolution3WEB extends PApplet {
 
     };
 
-    float histMinValue = -1; // histogram information
-    float histMaxValue = 25;
-    int histBarsPerMeter = 2;
+    static final float histMinValue = -1; // histogram information
+    static final float histMaxValue = 28;
+    static final int histBarsPerMeter = 2;
 
     // Okay, that's all the easy to edit stuff.
 
     PFont font;
-    ArrayList<Float[]> percentile = new ArrayList<Float[]>(0);
     ArrayList<Integer[]> barCounts = new ArrayList<Integer[]>(0);
     ArrayList<Integer[]> speciesCounts = new ArrayList<Integer[]>(0);
     ArrayList<Integer> topSpeciesCounts = new ArrayList<Integer>(0);
@@ -119,9 +118,12 @@ public class Evolution3WEB extends PApplet {
     // 11 = 8th percentile
     // ...
     // 19 = 0th percentile
-    int minBar = PApplet.parseInt(histMinValue * histBarsPerMeter);
-    int maxBar = PApplet.parseInt(histMaxValue * histBarsPerMeter);
-    int barLen = maxBar - minBar;
+    ArrayList<Float[]> percentile = new ArrayList<Float[]>(0);
+    static final int[] percentileIndex = new int[] { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500,
+            600, 700, 800, 900, 910, 920, 930, 940, 950, 960, 970, 980, 990, 999 };
+    static final int minBar = PApplet.parseInt(histMinValue * histBarsPerMeter);
+    static final int maxBar = PApplet.parseInt(histMaxValue * histBarsPerMeter);
+    static final int barLen = maxBar - minBar;
     int gensToDo = 0;
     float cTimer = 60;
 
@@ -154,23 +156,18 @@ public class Evolution3WEB extends PApplet {
     boolean stepbystepslow;
     boolean slowDies;
     int timeShow;
-    int[] p;
 
-    Modes runMode = Modes.FOREGROUND;
+    static final Modes runMode = Modes.BACKGROUND;
+
+    /**
+     * Will receive results from background
+     */
+    private BlockingQueue<Result> resultBuffer = new ArrayBlockingQueue<Result>(100, false);
+
+    private Thread backgroundThread;
 
     public Evolution3WEB() {
         super();
-        if (CREATURE_COUNT == 1000) {
-            p = new int[] { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 910,
-                    920, 930, 940, 950, 960, 970, 980, 990, 999 };
-        } else {
-            p = new int[29];
-            p[1] = 0;
-            for (int i = 1; i < p.length; i++) {
-                p[i] = CREATURE_COUNT / p.length * i;
-            }
-            p[p.length] = CREATURE_COUNT - 1;
-        }
     }
 
     public float inter(int a, int b, float offset) {
@@ -638,10 +635,14 @@ public class Evolution3WEB extends PApplet {
     }
 
     public void startASAP() {
-        setMenu(MENU_4_SELECT_OR_SIMULATE);
-        creaturesTested = 0;
-        stepbystep = false;
-        stepbystepslow = false;
+        if (runMode == Modes.FOREGROUND) {
+            setMenu(MENU_4_SELECT_OR_SIMULATE);
+            creaturesTested = 0;
+            stepbystep = false;
+            stepbystepslow = false;
+        } else {
+            setMenu(MENU_14_WAIT_FOR_GEN);
+        }
     }
 
     public void mouseReleased() {
@@ -1018,11 +1019,15 @@ public class Evolution3WEB extends PApplet {
                 text("Median Distance", 50, 160);
                 textAlign(CENTER);
                 textAlign(RIGHT);
-                text(PApplet.parseFloat(round(percentile.get(min(genSelected, percentile.size() - 1))[14] * 1000))
-                        / 1000 + " m", 700, 160);
+                final float median = PApplet
+                        .parseFloat(round(percentile.get(min(genSelected, percentile.size() - 1))[14] * 1000)) / 1000;
+                PerfRecorder.instance().setLabel("Gen " + gen + ", median: " + median + "m took: ");
+                PerfRecorder.instance().recordIteration();
+                text(median + " m", 700, 160);
                 drawHistogram(760, 410, 460, 280);
                 drawGraphImage();
             }
+
             if (gensToDo >= 1) {
                 gensToDo--;
                 if (gensToDo >= 1) {
@@ -1074,10 +1079,10 @@ public class Evolution3WEB extends PApplet {
                 }
                 case BACKGROUND: {
                     // Start Background thread.
-                    BlockingQueue<Result> resultBuffer = new ArrayBlockingQueue<Result>(100, false);
                     EvolutionSimulator es = new EvolutionSimulator(Arrays.stream(c), rects.stream(), resultBuffer,
                             gensToDo);
-                    es.run();
+                    backgroundThread = new Thread(es, "EvolutionSimulator");
+                    backgroundThread.start();
                     setMenu(MENU_14_WAIT_FOR_GEN);
                 }
                 }
@@ -1148,6 +1153,21 @@ public class Evolution3WEB extends PApplet {
                 timer += speed;
             }
         }
+        if (menu == MENU_14_WAIT_FOR_GEN) {
+            Result recent = resultBuffer.poll();
+            if (null != recent) {
+                c2 = recent.getPopulation();
+                updateStatisticsOfC2();
+                gen++;
+                if (gensToDo==1) {
+                    // This was the last gen to receive. Shallow copy into c
+                    for (int i = 0; i<c.length; i++) {
+                        c[i]=c2.get(i);
+                    }
+                }
+                setMenu(MENU_1_SHOW_STATS);
+            }
+        }
         if (menu == MENU_6_SORT_UPDATE_STATS) {
             // sort
             c2 = new ArrayList<Creature>(CREATURE_COUNT);
@@ -1155,58 +1175,7 @@ public class Evolution3WEB extends PApplet {
                 c2.add(ci);
             }
             c2 = quickSort(c2);
-            updatePercentile();
-            storeCreatureSamples();
-
-            // Create Histogram which consists of bars
-            Integer[] currentBars = new Integer[barLen];
-            for (int i = 0; i < barLen; i++) {
-                currentBars[i] = 0;
-            }
-            // Create Species counter: Values is the number of creatures of that species in the current generation.
-            Integer[] speciesCount = new Integer[101];
-            for (int i = 0; i < 101; i++) {
-                speciesCount[i] = 0;
-            }
-            for (int i = 0; i < CREATURE_COUNT; i++) {
-                // Find bar for this creature, this bar need not exist!
-                int bar = floor(c2.get(i).getFitness() * histBarsPerMeter - minBar);
-                if (bar >= 0 && bar < barLen) {
-                    // if it does exist, increase it
-                    currentBars[bar]++;
-                }
-
-                // Increase Species counter
-                int species = c2.get(i).getSpecies();
-                speciesCount[species]++;
-            }
-            // Nothing more to do with the histogram, store it.
-            barCounts.add(currentBars);
-
-            /*
-             * Create stacked lined graph over species The stacked line graph describes regions per Species. The first
-             * region extends from stacked[0] to stacked[1], where stacked[1] is the count of species "00". The next
-             * region extends from stacked[1] to stacked[2] where stacked[2] is the count of species "01"+ the count of
-             * all "smaller" species, which is actually stacked[1].
-             * 
-             * Therefore, stacked[i+1] = stacked[i]+countOfSpecies(i)
-             */
-            Integer stackedSpeciesGraph[] = new Integer[101];
-            stackedSpeciesGraph[0] = 0; // 
-            int record = 0;
-            int recordHolder = 0;
-            for (int species = 0; species < 100; species++) {
-                final Integer currentSpeciesCount = speciesCount[species];
-
-                stackedSpeciesGraph[species + 1] = stackedSpeciesGraph[species] + currentSpeciesCount;
-                if (currentSpeciesCount > record) {
-                    record = currentSpeciesCount;
-                    recordHolder = species;
-                }
-            }
-            // Store graph and record
-            speciesCounts.add(stackedSpeciesGraph);
-            topSpeciesCounts.add(recordHolder);
+            updateStatisticsOfC2();
 
             // Continue
             if (stepbystep) {
@@ -1322,10 +1291,6 @@ public class Evolution3WEB extends PApplet {
                 drawScreenImage(3);
             }
             gen++;
-            final float median = PApplet
-                    .parseFloat(round(percentile.get(min(genSelected, percentile.size() - 1))[14] * 1000)) / 1000;
-            PerfRecorder.instance().setLabel("Gen " + gen + ", median: " + median + "m took: ");
-            PerfRecorder.instance().recordIteration();
             if (stepbystep) {
                 setMenu(MENU_13_SHOW_NEW_GENERATION);
             } else {
@@ -1389,6 +1354,61 @@ public class Evolution3WEB extends PApplet {
         overallTimer++;
     }
 
+    private void updateStatisticsOfC2() {
+        updatePercentile();
+        storeCreatureSamples();
+
+        // Create Histogram which consists of bars
+        Integer[] currentBars = new Integer[barLen];
+        for (int i = 0; i < barLen; i++) {
+            currentBars[i] = 0;
+        }
+        // Create Species counter: Values is the number of creatures of that species in the current generation.
+        Integer[] speciesCount = new Integer[101];
+        for (int i = 0; i < 101; i++) {
+            speciesCount[i] = 0;
+        }
+        for (int i = 0; i < CREATURE_COUNT; i++) {
+            // Find bar for this creature, this bar need not exist!
+            int bar = floor(c2.get(i).getFitness() * histBarsPerMeter - minBar);
+            if (bar >= 0 && bar < barLen) {
+                // if it does exist, increase it
+                currentBars[bar]++;
+            }
+
+            // Increase Species counter
+            int species = c2.get(i).getSpecies();
+            speciesCount[species]++;
+        }
+        // Nothing more to do with the histogram, store it.
+        barCounts.add(currentBars);
+
+        /*
+         * Create stacked lined graph over species The stacked line graph describes regions per Species. The first
+         * region extends from stacked[0] to stacked[1], where stacked[1] is the count of species "00". The next region
+         * extends from stacked[1] to stacked[2] where stacked[2] is the count of species "01"+ the count of all
+         * "smaller" species, which is actually stacked[1].
+         * 
+         * Therefore, stacked[i+1] = stacked[i]+countOfSpecies(i)
+         */
+        Integer stackedSpeciesGraph[] = new Integer[101];
+        stackedSpeciesGraph[0] = 0; // 
+        int record = 0;
+        int recordHolder = 0;
+        for (int species = 0; species < 100; species++) {
+            final Integer currentSpeciesCount = speciesCount[species];
+
+            stackedSpeciesGraph[species + 1] = stackedSpeciesGraph[species] + currentSpeciesCount;
+            if (currentSpeciesCount > record) {
+                record = currentSpeciesCount;
+                recordHolder = species;
+            }
+        }
+        // Store graph and record
+        speciesCounts.add(stackedSpeciesGraph);
+        topSpeciesCounts.add(recordHolder);
+    }
+
     private void storeCreatureSamples() {
         creatureDatabase.add(c2.get(CREATURE_COUNT - 1).copyCreature(-1));
         creatureDatabase.add(c2.get(CREATURE_COUNT / 2 - 1).copyCreature(-1));
@@ -1396,10 +1416,11 @@ public class Evolution3WEB extends PApplet {
     }
 
     private void updatePercentile() {
-        percentile.add(new Float[29]);
+        Float currentPercentile[] = new Float[29];
         for (int i = 0; i < 29; i++) {
-            percentile.get(gen + 1)[i] = c2.get(p[i]).getFitness();
+            currentPercentile[i] = c2.get(percentileIndex[i]).getFitness();
         }
+        percentile.add(currentPercentile);
     }
 
     static public void main(String[] passedArgs) {

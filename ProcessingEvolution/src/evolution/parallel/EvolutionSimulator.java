@@ -35,7 +35,7 @@ import evolution.Result;
  */
 public class EvolutionSimulator implements Runnable {
 
-    private static final long SEED = 37;
+    private static final long SEED = 123;
     private ArrayList<Creature> population = new ArrayList<Creature>();
     private ArrayList<Rectangle> rects;
     final private int CREATURE_COUNT;
@@ -43,6 +43,11 @@ public class EvolutionSimulator implements Runnable {
 
     // Current generation
     private int generation;
+
+    /**
+     * Simulator pushes results of simulation into resultBuffer.
+     */
+    private BlockingQueue<Result> resultBuffer;
 
     /**
      * Number of generations to run until we stop.
@@ -89,7 +94,8 @@ public class EvolutionSimulator implements Runnable {
      * 
      * 
      */
-    public EvolutionSimulator(Stream<Creature> creatures, Stream<Rectangle> rectangles, BlockingQueue<Result> resultBuffer, int genToDo) {
+    public EvolutionSimulator(Stream<Creature> creatures, Stream<Rectangle> rectangles,
+            BlockingQueue<Result> resultBuffer, int genToDo) {
         if (!(genToDo > 0)) {
             throw new IllegalArgumentException("genToDo must be greater than 0, but is " + genToDo);
         }
@@ -101,6 +107,7 @@ public class EvolutionSimulator implements Runnable {
         }
         p.setLabel("Simulating 100 generations took: ");
         this.genToDo = genToDo;
+        this.resultBuffer = resultBuffer;
     }
 
     /**
@@ -111,33 +118,47 @@ public class EvolutionSimulator implements Runnable {
         mainLoop();
     }
 
+    /**
+     * 
+     * <pre>
+     * 1. Evaluate generation.
+     * 2. Queue result
+     * 3. Increase gen count, abort if gen limit reached.
+     * 4. Kill weak creatures and spawn new ones.
+     * </pre>
+     * 
+     * @throws InterruptedException
+     */
     private void mainLoop() {
         p.startTiming();
-        while (!Thread.interrupted()) {
-            // Update the fitness of the creatures, that is, make them experience the environment
-            ParallelSimulation.simulateFitness(population.stream(), rects);
+        try {
+            while (!Thread.interrupted()) {
+                // Update the fitness of the creatures, that is, make them experience the environment
+                ParallelSimulation.simulateFitness(population.stream(), rects);
 
+                // Sort them
+                sortPopulation();
 
-            // Sort them
-            sortPopulation();
+                // Increase generation count. The sorted population p is gen n+1
+                generation++;
 
-            // Increase generation count. The sorted population p is gen n+1
-            generation++;
+                logPerformance();
 
-            logPerformance();
+                // Update
+                reportProgress();
 
-            // Update
-            reportProgress();
-            
-            if (generation == genToDo) {
-                break;
+                if (generation == genToDo) {
+                    break;
+                }
+
+                // Selection, that is let half the population die
+                naturalSelection();
+
+                // Regrow, that is mutate the survivors
+                regrow();
             }
-
-            // Selection, that is let half the population die
-            naturalSelection();
-
-            // Regrow, that is mutate the survivors
-            regrow();
+        } catch (InterruptedException e) {
+            // Stop because we got interrupted
         }
     }
 
@@ -209,8 +230,14 @@ public class EvolutionSimulator implements Runnable {
         population.sort((first, second) -> Float.compare(second.getFitness(), first.getFitness()));
     }
 
-    private void reportProgress() {
-        System.out.println(statusMessage());
+    private void reportProgress() throws InterruptedException {
+        // Clone population
+        ArrayList<Creature> clonedPop = new ArrayList<Creature>(population.size());
+        for (Creature current : population) {
+            clonedPop.add(current.clone());
+        }
+        Result result = new Result(generation, clonedPop);
+        resultBuffer.put(result);
     }
 
     private String statusMessage() {
