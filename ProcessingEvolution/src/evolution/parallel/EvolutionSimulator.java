@@ -22,10 +22,10 @@ import evolution.Result;
  * Its main loop does the following:
  * 
  * <pre>
- * 1. Evaluate generation.
- * 2. Queue result
- * 3. Increase gen count, abort if gen limit reached.
- * 4. Kill weak creatures and spawn new ones.
+ * 1. Kill weak creatures and spawn new ones.
+ * 2. Evaluate generation.
+ * 3. Queue result
+ * 4. Increase gen count, abort if gen limit reached.
  * </pre>
  * 
  * Results are objects of {@link Result}. Each results is queued into a {@link BlockingQueue} provided at creation time.
@@ -53,10 +53,16 @@ public class EvolutionSimulator implements Runnable {
      * Number of generations to run until we stop.
      */
     private int genToDo;
+    /**
+     * If true the first loop will skip natural selection and and regrow; it will start with evaluation the given
+     * population. If false, all iterations will be similar.
+     * 
+     */
+    private boolean skipFirstKill;
 
     /**
      * Create an EvolutionSimulator with a given set of creatures and environment. It will simulate exactly one
-     * generation.
+     * generation, skipping the first kill
      * 
      * @param creatures
      *            Stream of Creatures that make up the population. It must supply an even number of creatures.
@@ -71,7 +77,7 @@ public class EvolutionSimulator implements Runnable {
      */
     public EvolutionSimulator(Stream<Creature> creatures, Stream<Rectangle> rectangles,
             BlockingQueue<Result> resultBuffer) {
-        this(creatures, rectangles, resultBuffer, 1);
+        this(creatures, rectangles, resultBuffer, 1, true);
     }
 
     /**
@@ -86,6 +92,9 @@ public class EvolutionSimulator implements Runnable {
      *            Buffer to receive results of evolution. Main loop will block if the buffer is full.
      * @param genToDo
      *            Number of generations to simulate. Must be greater than 0
+     * @param skipFirstKill
+     *            If true the first loop will skip natural selection and and regrow; it will start with evaluation the
+     *            given population. If false, all iterations will be similar.
      * 
      * @throws IllegalArgumentException
      *             if an uneven number, or no creatures are supplied.
@@ -95,7 +104,7 @@ public class EvolutionSimulator implements Runnable {
      * 
      */
     public EvolutionSimulator(Stream<Creature> creatures, Stream<Rectangle> rectangles,
-            BlockingQueue<Result> resultBuffer, int genToDo) {
+            BlockingQueue<Result> resultBuffer, int genToDo, boolean skipFirstKill) {
         if (!(genToDo > 0)) {
             throw new IllegalArgumentException("genToDo must be greater than 0, but is " + genToDo);
         }
@@ -108,6 +117,7 @@ public class EvolutionSimulator implements Runnable {
         p.setLabel("Simulating 100 generations took: ");
         this.genToDo = genToDo;
         this.resultBuffer = resultBuffer;
+        this.skipFirstKill = skipFirstKill;
     }
 
     /**
@@ -121,10 +131,10 @@ public class EvolutionSimulator implements Runnable {
     /**
      * 
      * <pre>
-     * 1. Evaluate generation.
-     * 2. Queue result
-     * 3. Increase gen count, abort if gen limit reached.
-     * 4. Kill weak creatures and spawn new ones.
+     * 1. Kill weak creatures and spawn new ones.
+     * 2. Evaluate generation.
+     * 3. Queue result
+     * 4. Increase gen count, abort if gen limit reached.
      * </pre>
      * 
      * @throws InterruptedException
@@ -132,7 +142,17 @@ public class EvolutionSimulator implements Runnable {
     private void mainLoop() {
         p.startTiming();
         try {
-            while (!Thread.interrupted()) {
+            while (!Thread.interrupted() && generation != genToDo) {
+                if (!skipFirstKill) {
+                    // Selection, that is let half the population die
+                    naturalSelection();
+
+                    // Regrow, that is mutate the survivors
+                    regrow();
+                } else {
+                    skipFirstKill = false;
+                }
+
                 // Update the fitness of the creatures, that is, make them experience the environment
                 ParallelSimulation.simulateFitness(population.stream(), rects);
 
@@ -146,16 +166,6 @@ public class EvolutionSimulator implements Runnable {
 
                 // Update
                 reportProgress();
-
-                if (generation == genToDo) {
-                    break;
-                }
-
-                // Selection, that is let half the population die
-                naturalSelection();
-
-                // Regrow, that is mutate the survivors
-                regrow();
             }
         } catch (InterruptedException e) {
             // Stop because we got interrupted
