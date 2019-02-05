@@ -1,5 +1,6 @@
 package de.my;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Random;
@@ -17,7 +18,6 @@ public class Stammtisch {
 	private static Set<GivingOrder> allResults = new HashSet<GivingOrder>();
 
 	public static void main(String[] args) {
-		try {
 			GivingOrder order = new GivingOrder();
 			System.out.println(order.printAllowed());
 			// Try to iterate all GivingOrders there are
@@ -29,13 +29,15 @@ public class Stammtisch {
 
 			GivingOrder result = selectOrder(allResults);
 
-			System.out.println(result.printEncrypted());
+			result.getURLs().forEach((e)->{
+			    try {
+                    SaveURLToFile.saveImage(e.getValue(), "Results\\"+e.getKey()+".gif");
+                } catch (IOException e1) {
+                    System.err.println("Could not create file to send to "+e.getKey());
+                }
+			});
 			
 			BirthDates.printAllBirthdays();
-		} catch (InvalidCharSet e) {
-			System.err.println(e.getMessage());
-			e.printStackTrace();
-		}
 
 	}
 
