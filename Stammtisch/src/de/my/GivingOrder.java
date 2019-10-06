@@ -115,9 +115,10 @@ public class GivingOrder {
                     case Andrea:
                         // Ist mit Markus ein Paar
                         switch (to) {
-                        case Markus: // <3
+                        case Markus:  // <3
                         case Susanne: // 2016
-                        case Vera: // 2017
+                        case Vera:    // 2017
+                        case Oliver:  // 2018
                             value = false;
                             break;
                         default:
@@ -128,9 +129,10 @@ public class GivingOrder {
                         // Ist mit Vera verheiratet
                         switch (to) {
                         case Susanne: // 2015
-                        case Andrea: // 2016
-                        case Oliver: // 2017
-                        case Vera: // <3
+                        case Andrea:  // 2016
+                        case Oliver:  // 2017
+                        case Martin:  // 2018
+                        case Vera:    // <3
                             value = false;
                             break;
                         default:
@@ -140,10 +142,11 @@ public class GivingOrder {
                     case Markus:
                         // Ist mit Andrea ein Paar
                         switch (to) {
-                        case Andrea: // <3
-                        case Jochen: // 2015
-                        case Vera: // 2016
+                        case Andrea:  // <3
+                        case Jochen:  // 2015
+                        case Vera:    // 2016
                         case Susanne: // 2017
+                        case Simone:  // 2018
                             value = false;
                             break;
                         default:
@@ -156,6 +159,7 @@ public class GivingOrder {
                         case Simone: // 2015
                         case Oliver: // 2016
                         case Jochen: // 2017
+                        case Markus: // 2018
                         case Susanne: // <3
                             value = false;
                             break;
@@ -166,6 +170,7 @@ public class GivingOrder {
                     case Oliver:
                         // Liebt Simone
                         switch (to) {
+                        case Andrea: // 2018
                         case Martin: // 2017
                         case Jochen: // 2016
                         case Markus: // 2015
@@ -179,9 +184,10 @@ public class GivingOrder {
                     case Simone:
                         // Ist mit Oliver ein Paar
                         switch (to) {
-                        case Vera: // 2015
+                        case Vera:   // 2015
                         case Martin: // 2016
                         case Andrea: // 2017
+                        case Jochen: // 2018
                         case Oliver: // <3
                             value = false;
                             break;
@@ -192,6 +198,7 @@ public class GivingOrder {
                     case Susanne:
                         // Ist mit Martin verheiratet
                         switch (to) {
+                        case Vera:   // 2018
                         case Simone: // 2017
                         case Markus: // 2016
                         case Oliver: // 2015
@@ -205,10 +212,11 @@ public class GivingOrder {
                     case Vera:
                         // Ist mit Jochen verheiratet
                         switch (to) {
-                        case Markus: // 2017
-                        case Simone: // 2016
-                        case Martin: // 2015
-                        case Jochen: // <3
+                        case Susanne: // 2018
+                        case Markus:  // 2017
+                        case Simone:  // 2016
+                        case Martin:  // 2015
+                        case Jochen:  // <3
                             value = false;
                             break;
                         default:
