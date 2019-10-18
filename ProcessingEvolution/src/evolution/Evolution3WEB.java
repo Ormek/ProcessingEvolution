@@ -116,7 +116,7 @@ public class Evolution3WEB extends PApplet {
     // Okay, that's all the easy to edit stuff.
 
     PFont font;
-    ArrayList<Integer[]> barCounts = new ArrayList<Integer[]>(0);
+    ArrayList<int[]> barCounts = new ArrayList<int[]>(0);
     ArrayList<Integer[]> speciesCounts = new ArrayList<Integer[]>(0);
     ArrayList<Integer> topSpeciesCounts = new ArrayList<Integer>(0);
     ArrayList<Creature> creatureDatabase = new ArrayList<Creature>(0);
@@ -413,9 +413,18 @@ public class Evolution3WEB extends PApplet {
                         graphImage.strokeWeight(1);
                     }
                 }
-                for (int j = 0; j < gen; j++) {
+                // Instead of drawing every generation, draw 10
+                int step = gen / 10 + 1;
+                for (int j = 0; j < gen; j += step) {
+                    if (j > gen) {
+                        j = gen;
+                    }
+                    int next = j + step;
+                    if (next > gen) {
+                        next = gen;
+                    }
                     graphImage.line(x + j * genWidth, (-percentile.get(j)[k]) * meterHeight + zero + y,
-                            x + (j + 1) * genWidth, (-percentile.get(j + 1)[k]) * meterHeight + zero + y);
+                            x + (next) * genWidth, (-percentile.get(next)[k]) * meterHeight + zero + y);
                 }
             }
         }
@@ -635,7 +644,7 @@ public class Evolution3WEB extends PApplet {
             Creature cj;
             if (statusWindow <= -1) {
                 cj = creatureDatabase.get((genSelected - 1) * 3 + statusWindow + 3);
-                id = genSelected*1024+statusWindow;
+                id = genSelected * 1024 + statusWindow;
             } else {
                 id = statusWindow;
                 cj = c2.get(id);
@@ -937,7 +946,7 @@ public class Evolution3WEB extends PApplet {
             int shouldBeWatching = statusWindow;
             if (statusWindow <= -1) {
                 cj = creatureDatabase.get((genSelected - 1) * 3 + statusWindow + 3);
-                shouldBeWatching = genSelected*1024+statusWindow;
+                shouldBeWatching = genSelected * 1024 + statusWindow;
             }
             if (creatureWatching != shouldBeWatching) {
                 openMiniSimulation();
@@ -953,13 +962,10 @@ public class Evolution3WEB extends PApplet {
         smooth();
         ellipseMode(CENTER);
         Float[] beginPercentile = new Float[29];
-        Integer[] beginBar = new Integer[barLen];
+        int[] beginBar = new int[barLen];
         Integer[] beginSpecies = new Integer[101];
         for (int i = 0; i < 29; i++) {
             beginPercentile[i] = 0.0f;
-        }
-        for (int i = 0; i < barLen; i++) {
-            beginBar[i] = 0;
         }
         for (int i = 0; i < 101; i++) {
             beginSpecies[i] = 500;
@@ -1414,7 +1420,6 @@ public class Evolution3WEB extends PApplet {
             text("Median Creature", 990, 310);
             text("Best Creature", 1150, 310);
         }
-
     }
 
     private void showNoPopulation() {
@@ -1449,15 +1454,11 @@ public class Evolution3WEB extends PApplet {
         storeCreatureSamples();
 
         // Create Histogram which consists of bars
-        Integer[] currentBars = new Integer[barLen];
-        for (int i = 0; i < barLen; i++) {
-            currentBars[i] = 0;
-        }
+        int[] currentBars = new int[barLen];
+
         // Create Species counter: Values is the number of creatures of that species in the current generation.
-        Integer[] speciesCount = new Integer[101];
-        for (int i = 0; i < 101; i++) {
-            speciesCount[i] = 0;
-        }
+        int[] speciesCount = new int[101];
+
         for (int i = 0; i < CREATURE_COUNT; i++) {
             // Find bar for this creature, this bar need not exist!
             int bar = floor(c2.get(i).getFitness() * histBarsPerMeter - minBar);
@@ -1486,7 +1487,7 @@ public class Evolution3WEB extends PApplet {
         int record = 0;
         int recordHolder = 0;
         for (int species = 0; species < 100; species++) {
-            final Integer currentSpeciesCount = speciesCount[species];
+            final int currentSpeciesCount = speciesCount[species];
 
             stackedSpeciesGraph[species + 1] = stackedSpeciesGraph[species] + currentSpeciesCount;
             if (currentSpeciesCount > record) {
@@ -1497,6 +1498,26 @@ public class Evolution3WEB extends PApplet {
         // Store graph and record
         speciesCounts.add(stackedSpeciesGraph);
         topSpeciesCounts.add(recordHolder);
+    }
+
+    /**
+     * We need to be quick and do not care about an statistical update. Just fake it, by copying previous results. By
+     * being quick, we hopefully get ahead of simulation again.
+     * 
+     * This is not used, because updating the statistic is fast enough.
+     */
+    @SuppressWarnings("unused")
+    private void updateStatisticsOfC2Shabby() {
+        //updatePercentile();
+        percentile.add(percentile.get(percentile.size() - 1));
+        storeCreatureSamples();
+
+        // Nothing more to do with the histogram, store it.
+        barCounts.add(barCounts.get(barCounts.size() - 1));
+
+        // Store graph and record
+        speciesCounts.add(speciesCounts.get(speciesCounts.size() - 1));
+        topSpeciesCounts.add(topSpeciesCounts.get(topSpeciesCounts.size() - 1));
     }
 
     private void storeCreatureSamples() {
