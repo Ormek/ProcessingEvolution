@@ -1,7 +1,11 @@
 package evolution;
 
+import static evolution.Evolution3WEB.MenuStates.*;
+
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 import de.my.performance.PerfRecorder;
 import evolution.parallel.EvolutionSimulator;
@@ -11,15 +15,52 @@ import processing.core.PFont;
 import processing.core.PGraphics;
 import processing.event.MouseEvent;
 
-import static evolution.Evolution3WEB.MenuStates.*;
-
+@SuppressWarnings("serial")
 public class Evolution3WEB extends PApplet {
 
+    private static final int NO_STATUS_WINDOWS = -4;
     // Number of creature in one generation. Please note, that the program is not fit to handle anything but 1000 here, yet.
     private static final int CREATURE_COUNT = 1000;
 
+    /**
+     * <pre>
+     * WAITING
+     * INIT: I0 -> I1 -> I2 -> I3 -> 1
+     * STEP_BY_STEP: 1 -> (4 -> 4B)+ -> 4 -> 6 -> .. 13 -> 1
+     * QUICK: 1 -> 4 -> 6 -> .. -> 13 -> 1
+     * ASAP: 1 -> 4 -> 6 -> 10 -> 12 -> 1
+     * </pre>
+     * 
+     * @author Oliver Meyer
+     */
     enum MenuStates {
-        MENU_0_TITLE_PAGE, MENU_1_SHOW_STATS, MENU_2_CREATE_INITIAL_POPULATION, MENU_3_RESET_GEN, MENU_4_SELECT_OR_SIMULATE, MENU_5_SIMULATE_SINGLE_RUNNING, MENU_6_SORT_UPDATE_STATS, MENU_7_SHOW_RESULTS, MENU_8_SHOW_SORTING, MENU_9_SHOW_SORTED_CREATURES, MENU_10_KILL_CREATURES, MENU_11_SHOW_DEAD, MENU_12_REPRODUCE, MENU_13_SHOW_NEW_GENERATION
+        MENU_I0_TITLE_PAGE, MENU_I1_NO_POPULATION, MENU_I2_CREATE_INITIAL_POPULATION, MENU_I3_RESET_GEN,
+        /**
+         * Showing the current status and waiting for user to do something.
+         */
+        MENU_1_SHOW_STATS, MENU_4_SELECT_OR_SIMULATE, MENU_4B_SIMULATE_SINGLE_RUNNING, MENU_6_SORT_UPDATE_STATS,
+        MENU_7_SHOW_RESULTS, MENU_8_SHOW_SORTING, MENU_9_SHOW_SORTED_CREATURES, MENU_10_KILL_CREATURES,
+        MENU_11_SHOW_DEAD, MENU_12_REPRODUCE, MENU_13_SHOW_NEW_GENERATION,
+        /**
+         * Only used in {@linkplain Modes#BACKGROUND} mode. Waiting to receive the next generation.
+         */
+        MENU_14_WAIT_FOR_GEN
+    };
+
+    enum Modes {
+        /**
+         * Step through generation evolution in AWT Thread, that is, do the evolution in
+         * {@linkplain Evolution3WEB#draw()} cycle.
+         */
+        FOREGROUND,
+        /**
+         * Do the evolution in the background and use AWT Thread to display the results only.
+         */
+        BACKGROUND
+    };
+
+    enum SimModes {
+        SLOW, QUICK, GEN
     };
 
     // These are the easy-to-edit variables.
@@ -68,15 +109,14 @@ public class Evolution3WEB extends PApplet {
 
     };
 
-    float histMinValue = -1; // histogram information
-    float histMaxValue = 25;
-    int histBarsPerMeter = 2;
+    static final float histMinValue = -1; // histogram information
+    static final float histMaxValue = 28;
+    static final int histBarsPerMeter = 2;
 
     // Okay, that's all the easy to edit stuff.
 
     PFont font;
-    ArrayList<Float[]> percentile = new ArrayList<Float[]>(0);
-    ArrayList<Integer[]> barCounts = new ArrayList<Integer[]>(0);
+    ArrayList<int[]> barCounts = new ArrayList<int[]>(0);
     ArrayList<Integer[]> speciesCounts = new ArrayList<Integer[]>(0);
     ArrayList<Integer> topSpeciesCounts = new ArrayList<Integer>(0);
     ArrayList<Creature> creatureDatabase = new ArrayList<Creature>(0);
@@ -94,9 +134,12 @@ public class Evolution3WEB extends PApplet {
     // 11 = 8th percentile
     // ...
     // 19 = 0th percentile
-    int minBar = PApplet.parseInt(histMinValue * histBarsPerMeter);
-    int maxBar = PApplet.parseInt(histMaxValue * histBarsPerMeter);
-    int barLen = maxBar - minBar;
+    ArrayList<Float[]> percentile = new ArrayList<Float[]>(0);
+    static final int[] percentileIndex = new int[] { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500,
+            600, 700, 800, 900, 910, 920, 930, 940, 950, 960, 970, 980, 990, 999 };
+    static final int minBar = PApplet.parseInt(histMinValue * histBarsPerMeter);
+    static final int maxBar = PApplet.parseInt(histMaxValue * histBarsPerMeter);
+    static final int barLen = maxBar - minBar;
     int gensToDo = 0;
     float cTimer = 60;
 
@@ -104,17 +147,20 @@ public class Evolution3WEB extends PApplet {
     int windowHeight = 720;
     int timer = 0;
     float cam = 0;
-    int frames = 60;
-    MenuStates menu = MENU_0_TITLE_PAGE;
+    MenuStates menu = MENU_I0_TITLE_PAGE;
     int gen = -1;
     float sliderX = 1170;
     int genSelected = 0;
     boolean drag = false;
-    boolean justGotBack = false;
     int creaturesTested = 0;
     int fontSize = 0;
     int[] fontSizes = { 50, 36, 25, 20, 16, 14, 11, 9 };
-    int statusWindow = -4;
+    /**
+     * Which creature to show in the small status window: -4 show nothing. -3 show worst creature of selected generation
+     * -2 show median creature of selected generation -1 show best creature of selected generation 0..999 show creature
+     * from c
+     */
+    int statusWindow = NO_STATUS_WINDOWS;
     int overallTimer = 0;
     boolean miniSimulation = false;
     int creatureWatching = 0;
@@ -126,25 +172,21 @@ public class Evolution3WEB extends PApplet {
     float average;
     int speed;
     int id;
-    boolean stepbystep;
-    boolean stepbystepslow;
+    SimModes simulationMode;
     boolean slowDies;
     int timeShow;
-    int[] p;
+
+    static final Modes runMode = Modes.BACKGROUND;
+
+    /**
+     * Will receive results from background
+     */
+    private BlockingQueue<Result> resultBuffer = new ArrayBlockingQueue<Result>(100, false);
+
+    private Thread backgroundThread;
 
     public Evolution3WEB() {
         super();
-        if (CREATURE_COUNT == 1000) {
-            p = new int[] { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 910,
-                    920, 930, 940, 950, 960, 970, 980, 990, 999 };
-        } else {
-            p = new int[29];
-            p[1] = 0;
-            for (int i = 1; i < p.length; i++) {
-                p[i] = CREATURE_COUNT / p.length * i;
-            }
-            p[p.length] = CREATURE_COUNT - 1;
-        }
     }
 
     public float inter(int a, int b, float offset) {
@@ -371,9 +413,18 @@ public class Evolution3WEB extends PApplet {
                         graphImage.strokeWeight(1);
                     }
                 }
-                for (int j = 0; j < gen; j++) {
+                // Instead of drawing every generation, draw 10
+                int step = gen / 10 + 1;
+                for (int j = 0; j < gen; j += step) {
+                    if (j > gen) {
+                        j = gen;
+                    }
+                    int next = j + step;
+                    if (next > gen) {
+                        next = gen;
+                    }
                     graphImage.line(x + j * genWidth, (-percentile.get(j)[k]) * meterHeight + zero + y,
-                            x + (j + 1) * genWidth, (-percentile.get(j + 1)[k]) * meterHeight + zero + y);
+                            x + (next) * genWidth, (-percentile.get(next)[k]) * meterHeight + zero + y);
                 }
             }
         }
@@ -519,7 +570,6 @@ public class Evolution3WEB extends PApplet {
         thisCreature.copyNodes(n);
         thisCreature.copyMuscles(m);
         id = thisCreature.id;
-        timer = 0;
         camzoom = 0.01f;
         cam = 0;
         cTimer = thisCreature.creatureTimer;
@@ -531,7 +581,7 @@ public class Evolution3WEB extends PApplet {
             Muscle mi = m.get(i);
 
             float target2;
-            target2 = mi.calculateTargetLength(timer, cTimer);
+            target2 = mi.calculateTargetLength(simulationTimer, cTimer);
             mi.applyForce(n, target2);
         }
         for (int i = 0; i < n.size(); i++) {
@@ -558,7 +608,7 @@ public class Evolution3WEB extends PApplet {
 
     public void mouseWheel(MouseEvent event) {
         int delta = event.getCount();
-        if (menu == MENU_5_SIMULATE_SINGLE_RUNNING) {
+        if (menu == MENU_4B_SIMULATE_SINGLE_RUNNING) {
             if (delta == -1) {
                 camzoom *= 0.9090909f;
                 if (camzoom < 0.006f) {
@@ -588,13 +638,13 @@ public class Evolution3WEB extends PApplet {
 
     public void openMiniSimulation() {
         simulationTimer = 0;
-        if (gensToDo == 0) {
+        if (gensToDo < 1) {
             miniSimulation = true;
             int id;
             Creature cj;
             if (statusWindow <= -1) {
                 cj = creatureDatabase.get((genSelected - 1) * 3 + statusWindow + 3);
-                id = cj.id;
+                id = genSelected * 1024 + statusWindow;
             } else {
                 id = statusWindow;
                 cj = c2.get(id);
@@ -612,10 +662,13 @@ public class Evolution3WEB extends PApplet {
     }
 
     public void startASAP() {
-        setMenu(MENU_4_SELECT_OR_SIMULATE);
-        creaturesTested = 0;
-        stepbystep = false;
-        stepbystepslow = false;
+        if (runMode == Modes.FOREGROUND) {
+            setMenu(MENU_4_SELECT_OR_SIMULATE);
+            creaturesTested = 0;
+            simulationMode = SimModes.GEN;
+        } else {
+            setMenu(MENU_14_WAIT_FOR_GEN);
+        }
     }
 
     public void mouseReleased() {
@@ -623,24 +676,22 @@ public class Evolution3WEB extends PApplet {
         miniSimulation = false;
         float mX = mouseX / WINDOW_SIZE;
         float mY = mouseY / WINDOW_SIZE;
-        if (menu == MENU_0_TITLE_PAGE && abs(mX - windowWidth / 2) <= 200 && abs(mY - 400) <= 100) {
-            setMenu(MENU_1_SHOW_STATS);
-        } else if (menu == MENU_1_SHOW_STATS && gen == -1 && abs(mX - 120) <= 100 && abs(mY - 300) <= 50) {
-            setMenu(MENU_2_CREATE_INITIAL_POPULATION);
-        } else if (menu == MENU_1_SHOW_STATS && gen >= 0 && abs(mX - 990) <= 230) {
+        if (menu == MENU_I0_TITLE_PAGE && abs(mX - windowWidth / 2) <= 200 && abs(mY - 400) <= 100) {
+            setMenu(MENU_I1_NO_POPULATION);
+        } else if (menu == MENU_I1_NO_POPULATION && abs(mX - 120) <= 100 && abs(mY - 300) <= 50) {
+            setMenu(MENU_I2_CREATE_INITIAL_POPULATION);
+        } else if (menu == MENU_1_SHOW_STATS && abs(mX - 990) <= 230) {
             if (abs(mY - 40) <= 20) {
                 // Do 1 step-by-step generation
                 setMenu(MENU_4_SELECT_OR_SIMULATE);
                 creaturesTested = 0;
-                stepbystep = true;
-                stepbystepslow = true;
+                simulationMode = SimModes.SLOW;
             }
             if (abs(mY - 90) <= 20) {
                 // Do 1 quick generation
                 setMenu(MENU_4_SELECT_OR_SIMULATE);
                 creaturesTested = 0;
-                stepbystep = true;
-                stepbystepslow = false;
+                simulationMode = SimModes.QUICK;
             }
             if (abs(mY - 140) <= 20) {
                 // Do ASAP
@@ -653,11 +704,11 @@ public class Evolution3WEB extends PApplet {
                 }
                 setMenu(MENU_4_SELECT_OR_SIMULATE);
                 creaturesTested = 0;
-                stepbystep = false;
-                stepbystepslow = false;
+                simulationMode = SimModes.GEN;
             }
-        } else if (menu == MENU_3_RESET_GEN && abs(mX - 1030) <= 130 && abs(mY - 684) <= 20) {
+        } else if (menu == MENU_I3_RESET_GEN && abs(mX - 1030) <= 130 && abs(mY - 684) <= 20) {
             gen = 0;
+            gensToDo = 0;
             setMenu(MENU_1_SHOW_STATS);
         } else if (menu == MENU_7_SHOW_RESULTS && abs(mX - 1030) <= 130 && abs(mY - 684) <= 20) {
             setMenu(MENU_8_SHOW_SORTING);
@@ -895,7 +946,7 @@ public class Evolution3WEB extends PApplet {
             int shouldBeWatching = statusWindow;
             if (statusWindow <= -1) {
                 cj = creatureDatabase.get((genSelected - 1) * 3 + statusWindow + 3);
-                shouldBeWatching = cj.id;
+                shouldBeWatching = genSelected * 1024 + statusWindow;
             }
             if (creatureWatching != shouldBeWatching) {
                 openMiniSimulation();
@@ -911,13 +962,10 @@ public class Evolution3WEB extends PApplet {
         smooth();
         ellipseMode(CENTER);
         Float[] beginPercentile = new Float[29];
-        Integer[] beginBar = new Integer[barLen];
+        int[] beginBar = new int[barLen];
         Integer[] beginSpecies = new Integer[101];
         for (int i = 0; i < 29; i++) {
             beginPercentile[i] = 0.0f;
-        }
-        for (int i = 0; i < barLen; i++) {
-            beginBar[i] = 0;
         }
         for (int i = 0; i < 101; i++) {
             beginSpecies[i] = 500;
@@ -940,276 +988,181 @@ public class Evolution3WEB extends PApplet {
         }
     }
 
+    private boolean skipFirstKill;
+
     public void draw() {
         scale(1);
-        if (menu == MENU_0_TITLE_PAGE) {
-            background(255);
-            fill(100, 200, 100);
-            noStroke();
-            rect(windowWidth / 2 - 200, 300, 400, 200);
-            fill(0);
-            text("EVOLUTION!", windowWidth / 2, 200);
-            text("START", windowWidth / 2, 430);
+        if (menu == MENU_I0_TITLE_PAGE) {
+            showTitlePage();
+        } else if (menu == MENU_I1_NO_POPULATION) {
+            showNoPopulation();
         } else if (menu == MENU_1_SHOW_STATS) {
-            noStroke();
-            fill(0);
-            background(255, 200, 130);
-            textFont(font, 32);
-            textAlign(LEFT);
-            textFont(font, 96);
-            text("Generation " + max(genSelected, 0), 20, 100);
-            textFont(font, 28);
-            if (gen == -1) {
-                fill(100, 200, 100);
-                rect(20, 250, 200, 100);
-                fill(0);
-                text("Since there are no creatures yet, create 1000 creatures!", 20, 160);
-                text("They will be randomly created, and also very simple.", 20, 200);
-                text("CREATE", 56, 312);
-            } else {
-                fill(100, 200, 100);
-                rect(760, 20, 460, 40);
-                rect(760, 70, 460, 40);
-                rect(760, 120, 230, 40);
-                if (gensToDo >= 2) {
-                    fill(128, 255, 128);
-                } else {
-                    fill(70, 140, 70);
-                }
-                rect(990, 120, 230, 40);
-                fill(0);
-                text("Do 1 step-by-step generation.", 770, 50);
-                text("Do 1 quick generation.", 770, 100);
-                text("Do 1 gen ASAP.", 770, 150);
-                if (gensToDo >= 2) {
-                    textFont(font, 15);
-                    text("Currently ALAPing.", 996, 136);
-                    text("Click & hold anywhere to stop.", 996, 153);
-                    textFont(font, 28);
-                } else {
-                    text("Do gens ALAP.", 1000, 150);
-                }
-                text("Median Distance", 50, 160);
-                textAlign(CENTER);
-                textAlign(RIGHT);
-                text(PApplet.parseFloat(round(percentile.get(min(genSelected, percentile.size() - 1))[14] * 1000))
-                        / 1000 + " m", 700, 160);
-                drawHistogram(760, 410, 460, 280);
-                drawGraphImage();
-            }
+            showStatus();
             if (gensToDo >= 1) {
-                gensToDo--;
-                if (gensToDo >= 1) {
-                    startASAP();
+                if (runMode == Modes.FOREGROUND) {
+                    setMenu(MENU_4_SELECT_OR_SIMULATE);
+                } else {
+                    setMenu(MENU_14_WAIT_FOR_GEN);
                 }
             }
-        } else if (menu == MENU_2_CREATE_INITIAL_POPULATION) {
-            camzoom = 0.12f;
-            background(220, 253, 102);
-            // Create 25 x 40 = 1000 creatures
-            for (int y = 0; y < 25; y++) {
-                for (int x = 0; x < 40; x++) {
-
-                    int id = y * 40 + x;
-
-                    Creature createdCreature = Creature.createRandomCreature(id + 1, (a, b) -> random(a, b));
-
-                    c[id] = createdCreature;
-
-                    // Draw it.
-                    c[id].drawCreatureWhole(x * 30 + 55, y * 25 + 30, 0, this);
-                }
-            }
-            //EvolutionSimulator es = new EvolutionSimulator(Arrays.stream(c), rects.stream());
-            //es.run();
-            
-            setMenu(MENU_3_RESET_GEN);
-            noStroke();
-            fill(100, 100, 200);
-            rect(900, 664, 260, 40);
-            fill(0);
-            textAlign(CENTER);
-            textFont(font, 24);
-            text("Here are your 1000 randomly generated creatures!!!", windowWidth / 2 - 200, 690);
-            text("Back", windowWidth - 250, 690);
+        } else if (menu == MENU_I2_CREATE_INITIAL_POPULATION) {
+            showAndCreateInitialPopulation(c);
+            setMenu(MENU_I3_RESET_GEN);
         } else if (menu == MENU_4_SELECT_OR_SIMULATE) {
-            setGlobalVariables(c[creaturesTested]);
+            MenuStates nextState;
             camzoom = 0.01f;
-            setMenu(MENU_5_SIMULATE_SINGLE_RUNNING);
-            if (stepbystepslow) {
-                if (creaturesTested <= 4) {
-                    speed = max(creaturesTested, 1);
+            switch (simulationMode) {
+            case SLOW: {
+                if (creaturesTested < CREATURE_COUNT) {
+                    // Select the creature and make MENU_5 do its visual simulation
+                    setGlobalVariables(c[creaturesTested]);
+                    timer = 0;
+                    if (creaturesTested <= 4) {
+                        speed = max(creaturesTested, 1);
+                    } else {
+                        speed = min(creaturesTested * 3 - 9, 1000);
+                    }
+                    nextState = MENU_4B_SIMULATE_SINGLE_RUNNING;
                 } else {
-                    speed = min(creaturesTested * 3 - 9, 1000);
+                    // We are done with the step by step simulation of creatures.
+                    nextState = MENU_6_SORT_UPDATE_STATS;
                 }
-            } else {
+                break;
+            }
+            case QUICK: {
                 ParallelSimulation.simulateFitness(c, rects);
-                setMenu(MENU_6_SORT_UPDATE_STATS);
+                nextState = MenuStates.MENU_6_SORT_UPDATE_STATS;
+                break;
             }
-        }
-        if (menu == MENU_5_SIMULATE_SINGLE_RUNNING) { // simulate running
-            if (timer <= 900) {
-                textAlign(CENTER);
-                textFont(font, 0.96f / camzoom);
-                background(120, 200, 255);
-                for (int s = 0; s < speed; s++) {
-                    if (timer < 900) {
-                        simulate();
-                        simulationTimer++;
-                        timer++;
-                    }
+            case GEN: {
+                // Simulate fast synchronously (Foreground) or asynchronously (Background)
+                switch (runMode) {
+                case FOREGROUND: {
+                    ParallelSimulation.simulateFitness(c, rects);
+                    nextState = MenuStates.MENU_6_SORT_UPDATE_STATS;
+                    break;
                 }
-                setAverage();
-                if (speed < 30) {
-                    for (int s = 0; s < speed; s++) {
-                        cam += (average - cam) * 0.03f;
-                    }
-                } else {
-                    cam = average;
+                case BACKGROUND: {
+                    // Start Background thread.
+                    EvolutionSimulator es = new EvolutionSimulator(Arrays.stream(c), rects.stream(), resultBuffer,
+                            gensToDo, skipFirstKill);
+                    backgroundThread = new Thread(es, "EvolutionSimulator");
+                    backgroundThread.start();
+                    nextState = MenuStates.MENU_14_WAIT_FOR_GEN;
+                    break;
                 }
-                drawPosts(0);
-                drawGround(0);
-                drawCreature(n, m, -cam / camzoom + windowWidth / 2, windowHeight * 0.8f, 0);
-                drawArrow(average);
-                textAlign(RIGHT);
-                textFont(font, 32);
-                fill(0);
-                text("Creature ID: " + id, windowWidth - 10, 32);
-                if (speed > 60) {
-                    timeShow = PApplet.parseInt((timer + creaturesTested * 37) / 60) % 15;
-                } else {
-                    timeShow = (timer / 60);
+                default: {
+                    throw new IllegalStateException(
+                            "Error: The program does not know how to handle RunMode " + runMode.name());
                 }
-                timeShow = round(timeShow);
-                text("Time: " + timeShow + " / 15 sec.", windowWidth - 10, 64);
-                text("Playback Speed: x" + speed, windowWidth - 10, 96);
+                }
+                break;
             }
-            if (timer == 900) {
-                if (speed < 30) {
-                    noStroke();
-                    fill(0, 0, 0, 130);
-                    rect(0, 0, windowWidth, windowHeight);
-                    fill(0, 0, 0, 255);
-                    rect(windowWidth / 2 - 500, 200, 1000, 240);
-                    fill(255, 0, 0);
-                    textAlign(CENTER);
-                    textFont(font, 96);
-                    text("Creature's Distance:", windowWidth / 2, 300);
-                    text(PApplet.parseFloat(round(average * 200)) / 1000 + " m", windowWidth / 2, 400);
-                } else {
-                    timer = 1020;
-                }
-                c[creaturesTested].setFitness(average * 0.2f);
+            default: {
+                throw new IllegalStateException(
+                        "Error: The program does not know how to handle simulationMode " + simulationMode.name());
             }
+            }
+            setMenu(nextState);
+        } else if (menu == MENU_4B_SIMULATE_SINGLE_RUNNING) {
+            showRunningSimulation();
             if (timer >= 1020) {
                 setMenu(MENU_4_SELECT_OR_SIMULATE);
                 creaturesTested++;
-                if (creaturesTested == CREATURE_COUNT) {
-                    setMenu(MENU_6_SORT_UPDATE_STATS);
-                }
                 cam = 0;
             }
-            if (timer >= 900) {
-                timer += speed;
-            }
-        }
-        if (menu == MENU_6_SORT_UPDATE_STATS) {
-            // sort
-            c2 = new ArrayList<Creature>(CREATURE_COUNT);
-            for (Creature ci : c) {
-                c2.add(ci);
-            }
-            c2 = quickSort(c2);
-            percentile.add(new Float[29]);
-            for (int i = 0; i < 29; i++) {
-                percentile.get(gen + 1)[i] = c2.get(p[i]).getFitness();
-            }
-            creatureDatabase.add(c2.get(CREATURE_COUNT - 1).copyCreature(-1));
-            creatureDatabase.add(c2.get(CREATURE_COUNT / 2 - 1).copyCreature(-1));
-            creatureDatabase.add(c2.get(0).copyCreature(-1));
-
-            Integer[] beginBar = new Integer[barLen];
-            for (int i = 0; i < barLen; i++) {
-                beginBar[i] = 0;
-            }
-            barCounts.add(beginBar);
-            Integer[] beginSpecies = new Integer[101];
-            for (int i = 0; i < 101; i++) {
-                beginSpecies[i] = 0;
-            }
-            for (int i = 0; i < CREATURE_COUNT; i++) {
-                int bar = floor(c2.get(i).getFitness() * histBarsPerMeter - minBar);
-                if (bar >= 0 && bar < barLen) {
-                    barCounts.get(gen + 1)[bar]++;
+        } else if (menu == MENU_14_WAIT_FOR_GEN) {
+            Result recent = resultBuffer.poll();
+            if (null != recent) {
+                c2 = recent.getPopulation();
+                skipFirstKill = false;
+                updateStatisticsOfC2();
+                gen++;
+                gensToDo--;
+                if (gensToDo == 0) {
+                    // This was the last gen to receive. Shallow copy into c
+                    for (int i = 0; i < c.length; i++) {
+                        c[i] = c2.get(i);
+                    }
                 }
-                int species = c2.get(i).getSpecies();
-                beginSpecies[species]++;
+                setMenu(MENU_1_SHOW_STATS);
             }
-            speciesCounts.add(new Integer[101]);
-            speciesCounts.get(gen + 1)[0] = 0;
-            int cum = 0;
-            int record = 0;
-            int holder = 0;
-            for (int i = 0; i < 100; i++) {
-                cum += beginSpecies[i];
-                speciesCounts.get(gen + 1)[i + 1] = cum;
-                if (beginSpecies[i] > record) {
-                    record = beginSpecies[i];
-                    holder = i;
-                }
-            }
-            topSpeciesCounts.add(holder);
-            if (stepbystep) {
+        } else if (menu == MENU_6_SORT_UPDATE_STATS) {
+            sortAndUpdateStats();
+            if (simulationMode != SimModes.GEN) {
                 drawScreenImage(0);
                 setMenu(MENU_7_SHOW_RESULTS);
             } else {
                 setMenu(MENU_10_KILL_CREATURES);
             }
-        }
-        if (menu == MENU_8_SHOW_SORTING) {
-            // cool sorting animation
-            camzoom = 0.12f;
-            background(220, 253, 102);
-            float transition = 0.5f - 0.5f * cos(min(PApplet.parseFloat(timer) / 60, PI));
-            for (int j = 0; j < CREATURE_COUNT; j++) {
-                Creature cj = c2.get(j);
-                int j2 = cj.id - (gen * CREATURE_COUNT) - 1;
-                int x1 = j2 % 40;
-                int y1 = floor(j2 / 40);
-                int x2 = j % 40;
-                int y2 = floor(j / 40) + 1;
-                float x3 = inter(x1, x2, transition);
-                float y3 = inter(y1, y2, transition);
-                cj.drawCreatureWhole(x3 * 30 + 55, y3 * 25 + 40, 0, this);
-            }
-            if (stepbystepslow) {
-                timer += 1 * SORT_ANIMATION_SPEED;
-            } else {
-                timer += 3 * SORT_ANIMATION_SPEED;
-            }
+        } else if (menu == MENU_8_SHOW_SORTING) {
+            showSortingAnimation();
             if (timer > 60 * PI) {
                 drawScreenImage(1);
                 setMenu(MENU_9_SHOW_SORTED_CREATURES);
             }
+        } else if (menu == MENU_10_KILL_CREATURES) {
+            killCreatures();
+            if (simulationMode != SimModes.GEN) {
+                drawScreenImage(2);
+                setMenu(MENU_11_SHOW_DEAD);
+            } else {
+                setMenu(MENU_12_REPRODUCE);
+            }
+        } else if (menu == MENU_12_REPRODUCE) {
+            reproduce();
+            gen++;
+            gensToDo--;
+            PerfRecorder.instance().setLabel("Gen " + gen + ", median: " + calcMedian() + "m took: ");
+            PerfRecorder.instance().recordIteration();
+
+            if (simulationMode != SimModes.GEN) {
+                setMenu(MENU_13_SHOW_NEW_GENERATION);
+            } else {
+                setMenu(MENU_1_SHOW_STATS);
+            }
         }
-        float mX = mouseX / WINDOW_SIZE;
-        float mY = mouseY / WINDOW_SIZE;
+
+        final float mX = mouseX / WINDOW_SIZE;
+        final float mY = mouseY / WINDOW_SIZE;
+        statusWindow = calculateStatusWindow(mX, mY, menu, gensToDo, drag, genSelected, creaturesInPosition);
+
+        if (menu == MENU_13_SHOW_NEW_GENERATION || menu == MENU_11_SHOW_DEAD || menu == MENU_9_SHOW_SORTED_CREATURES
+                || menu == MENU_7_SHOW_RESULTS) {
+            image(screenImage, 0, 0, windowWidth, windowHeight);
+        }
+        if (statusWindow != NO_STATUS_WINDOWS) {
+            drawStatusWindow();
+            if (!miniSimulation) {
+                openMiniSimulation();
+            }
+        }
+        overallTimer++;
+    }
+
+    private float calcMedian() {
+        return PApplet.parseFloat(round(percentile.get(min(genSelected, percentile.size() - 1))[14] * 1000)) / 1000;
+    }
+
+    private static int calculateStatusWindow(float mX, float mY, MenuStates menu, int gensToDo, boolean drag,
+            int genSelected, int creaturesInPosition[]) {
+        int statusWindow;
         if ((menu == MENU_7_SHOW_RESULTS || menu == MENU_8_SHOW_SORTING || menu == MENU_9_SHOW_SORTED_CREATURES
-                || menu == MENU_10_KILL_CREATURES || menu == MENU_11_SHOW_DEAD) && gensToDo == 0 && !drag) {
+                || menu == MENU_10_KILL_CREATURES || menu == MENU_11_SHOW_DEAD) && gensToDo < 1 && !drag) {
             if (abs(mX - 639.5f) <= 599.5f) {
                 if (menu == MENU_7_SHOW_RESULTS && abs(mY - 329) <= 312) {
                     statusWindow = creaturesInPosition[floor((mX - 40) / 30) + floor((mY - 17) / 25) * 40];
                 } else if ((menu == MENU_9_SHOW_SORTED_CREATURES || menu == MENU_10_KILL_CREATURES
-                        || menu == MENU_11_SHOW_DEAD || menu == MENU_12_REPRODUCE || menu == MENU_13_SHOW_NEW_GENERATION) && abs(mY - 354) <= 312) {
+                        || menu == MENU_11_SHOW_DEAD || menu == MENU_12_REPRODUCE) && abs(mY - 354) <= 312) {
                     statusWindow = floor((mX - 40) / 30) + floor((mY - 42) / 25) * 40;
                 } else {
-                    statusWindow = -4;
+                    statusWindow = NO_STATUS_WINDOWS;
                 }
             } else {
-                statusWindow = -4;
+                statusWindow = NO_STATUS_WINDOWS;
             }
-        } else if (menu == MENU_1_SHOW_STATS && genSelected >= 1 && gensToDo == 0 && !drag) {
-            statusWindow = -4;
+        } else if (menu == MENU_1_SHOW_STATS && genSelected >= 1 && gensToDo < 1 && !drag) {
+            statusWindow = NO_STATUS_WINDOWS;
             if (abs(mY - 250) <= 70) {
                 if (abs(mX - 990) <= 230) {
                     float modX = (mX - 760) % 160;
@@ -1219,123 +1172,366 @@ public class Evolution3WEB extends PApplet {
                 }
             }
         } else {
-            statusWindow = -4;
+            statusWindow = NO_STATUS_WINDOWS;
         }
-        if (menu == MENU_10_KILL_CREATURES) {
-            // Kill!
-            for (int j = 0; j < 500; j++) {
-                float f = PApplet.parseFloat(j) / CREATURE_COUNT;
-                float rand = (pow(random(-1, 1), 3) + 1) / 2; // cube function
-                slowDies = (f <= rand);
-                int j3;
-                if (slowDies) {
-                    j3 = 999 - j;
-                } else {
-                    j3 = j;
-                }
-                Creature ck = c2.get(j3);
-                ck.die();
-            }
-            if (stepbystep) {
-                drawScreenImage(2);
-                setMenu(MENU_11_SHOW_DEAD);
+        return statusWindow;
+    }
+
+    private void reproduce() {
+        // Reproduce and mutate
+        for (int j = 0; j < 500; j++) {
+            // Creatures are stored in c2 in pairs (x, 999-x). If x is dead, then 999-x is alive and vice versa.
+            // The dead creature will be replaced by a modified version of its alive counterpart.
+            int liveIndex, deadIndex;
+            if (!c2.get(j).isAlive()) { // j is dead
+                liveIndex = CREATURE_COUNT - 1 - j;
+                deadIndex = j;
             } else {
-                setMenu(MENU_12_REPRODUCE);
+                liveIndex = j;
+                deadIndex = CREATURE_COUNT - 1 - j;
             }
+            Creature liveCreature = c2.get(liveIndex);
+            int deadCreatureId = c2.get(deadIndex).id;
+            Creature offspring = liveCreature.modified(deadCreatureId + CREATURE_COUNT, () -> r(),
+                    (x, y) -> random(x, y));
+            c2.set(deadIndex, offspring); // mutated
+            c2.set(liveIndex, liveCreature.copyCreature(liveCreature.id + CREATURE_COUNT)); // duplicate
         }
-        if (menu == MENU_12_REPRODUCE) { // Reproduce and mutate
-            justGotBack = true;
-            for (int j = 0; j < 500; j++) {
-                // Creatures are stored in c2 in pairs (x, 999-x). If x is dead, then 999-x is alive and vice versa.
-                // The dead creature will be replaced by a modified version of its alive counterpart.
-                int liveIndex, deadIndex;
-                if (!c2.get(j).isAlive()) { // j is dead
-                    liveIndex = CREATURE_COUNT - 1 - j;
-                    deadIndex = j;
-                } else {
-                    liveIndex = j;
-                    deadIndex = CREATURE_COUNT - 1 - j;
-                }
-                Creature liveCreature = c2.get(liveIndex);
-                int deadCreatureId = c2.get(deadIndex).id;
-                Creature offspring = liveCreature.modified(deadCreatureId + CREATURE_COUNT, () -> r(),
-                        (x, y) -> random(x, y));
-                c2.set(deadIndex, offspring); // mutated
-                c2.set(liveIndex, liveCreature.copyCreature(liveCreature.id + CREATURE_COUNT)); // duplicate
-            }
-            for (int j = 0; j < CREATURE_COUNT; j++) {
-                Creature cj = c2.get(j);
-                c[cj.id - (gen * CREATURE_COUNT) - 1001] = cj.copyCreature(-1);
-            }
-            if (stepbystep) {
-                drawScreenImage(3);
-            }
-            gen++;
-            final float median = PApplet
-                    .parseFloat(round(percentile.get(min(genSelected, percentile.size() - 1))[14] * 1000)) / 1000;
-            PerfRecorder.instance().setLabel("Gen " + gen + ", median: " + median + "m took: ");
-            PerfRecorder.instance().recordIteration();
-            if (stepbystep) {
-                setMenu(MENU_13_SHOW_NEW_GENERATION);
+        for (int j = 0; j < CREATURE_COUNT; j++) {
+            Creature cj = c2.get(j);
+            c[cj.id - (gen * CREATURE_COUNT) - 1001] = cj.copyCreature(-1);
+        }
+        if (simulationMode != SimModes.GEN) {
+            drawScreenImage(3);
+        }
+    }
+
+    private void killCreatures() {
+        // Kill!
+        for (int j = 0; j < 500; j++) {
+            float f = PApplet.parseFloat(j) / CREATURE_COUNT;
+            float rand = (pow(random(-1, 1), 3) + 1) / 2; // cube function
+            slowDies = (f <= rand);
+            int j3;
+            if (slowDies) {
+                j3 = 999 - j;
             } else {
-                setMenu(MENU_1_SHOW_STATS);
+                j3 = j;
             }
+            Creature ck = c2.get(j3);
+            ck.die();
         }
-        if ( // menu % 2 == 1 && abs(menu - 10) <= 3
-        menu == MENU_13_SHOW_NEW_GENERATION || menu == MENU_11_SHOW_DEAD | menu == MENU_9_SHOW_SORTED_CREATURES
-                || menu == MENU_7_SHOW_RESULTS) {
-            image(screenImage, 0, 0, windowWidth, windowHeight);
+    }
+
+    private void showSortingAnimation() {
+        // cool sorting animation
+        camzoom = 0.12f;
+        background(220, 253, 102);
+        float transition = 0.5f - 0.5f * cos(min(PApplet.parseFloat(timer) / 60, PI));
+        for (int j = 0; j < CREATURE_COUNT; j++) {
+            Creature cj = c2.get(j);
+            int j2 = cj.id - (gen * CREATURE_COUNT) - 1;
+            int x1 = j2 % 40;
+            int y1 = floor(j2 / 40);
+            int x2 = j % 40;
+            int y2 = floor(j / 40) + 1;
+            float x3 = inter(x1, x2, transition);
+            float y3 = inter(y1, y2, transition);
+            cj.drawCreatureWhole(x3 * 30 + 55, y3 * 25 + 40, 0, this);
         }
-        if (menu == MENU_1_SHOW_STATS || gensToDo >= 1) {
-            mX = mouseX / WINDOW_SIZE;
-            mY = mouseY / WINDOW_SIZE;
-            noStroke();
-            if (gen >= 1) {
+        if (simulationMode == SimModes.SLOW) {
+            timer += 1 * SORT_ANIMATION_SPEED;
+        } else {
+            timer += 3 * SORT_ANIMATION_SPEED;
+        }
+    }
+
+    private void sortAndUpdateStats() {
+        // sort
+        c2 = new ArrayList<Creature>(CREATURE_COUNT);
+        for (Creature ci : c) {
+            c2.add(ci);
+        }
+        c2 = quickSort(c2);
+        updateStatisticsOfC2();
+    }
+
+    private void showRunningSimulation() {
+        // simulate running
+        if (timer <= 900) {
+            textAlign(CENTER);
+            textFont(font, 0.96f / camzoom);
+            background(120, 200, 255);
+            for (int s = 0; s < speed; s++) {
+                if (timer < 900) {
+                    simulate();
+                    simulationTimer++;
+                    timer++;
+                }
+            }
+            setAverage();
+            if (speed < 30) {
+                for (int s = 0; s < speed; s++) {
+                    cam += (average - cam) * 0.03f;
+                }
+            } else {
+                cam = average;
+            }
+            drawPosts(0);
+            drawGround(0);
+            drawCreature(n, m, -cam / camzoom + windowWidth / 2, windowHeight * 0.8f, 0);
+            drawArrow(average);
+            textAlign(RIGHT);
+            textFont(font, 32);
+            fill(0);
+            text("Creature ID: " + id, windowWidth - 10, 32);
+            if (speed > 60) {
+                timeShow = PApplet.parseInt((timer + creaturesTested * 37) / 60) % 15;
+            } else {
+                timeShow = (timer / 60);
+            }
+            timeShow = round(timeShow);
+            text("Time: " + timeShow + " / 15 sec.", windowWidth - 10, 64);
+            text("Playback Speed: x" + speed, windowWidth - 10, 96);
+        }
+        if (timer == 900) {
+            if (speed < 30) {
+                noStroke();
+                fill(0, 0, 0, 130);
+                rect(0, 0, windowWidth, windowHeight);
+                fill(0, 0, 0, 255);
+                rect(windowWidth / 2 - 500, 200, 1000, 240);
+                fill(255, 0, 0);
                 textAlign(CENTER);
-                if (gen >= 5) {
-                    genSelected = round((sliderX - 760) * (gen - 1) / 410) + 1;
-                } else {
-                    genSelected = round((sliderX - 760) * gen / 410);
-                }
-                if (drag)
-                    sliderX = min(max(sliderX + (mX - 25 - sliderX) * 0.2f, 760), 1170);
-                fill(100);
-                rect(760, 340, 460, 50);
-                fill(220);
-                rect(sliderX, 340, 50, 50);
-                int fs = 0;
-                if (genSelected >= 1) {
-                    fs = floor(log(genSelected) / log(10));
-                }
-                fontSize = fontSizes[fs];
-                textFont(font, fontSize);
-                fill(0);
-                text(genSelected, sliderX + 25, 366 + fontSize * 0.3333f);
+                textFont(font, 96);
+                text("Creature's Distance:", windowWidth / 2, 300);
+                text(PApplet.parseFloat(round(average * 200)) / 1000 + " m", windowWidth / 2, 400);
+            } else {
+                timer = 1020;
             }
+            c[creaturesTested].setFitness(average * 0.2f);
+        }
+        if (timer >= 900) {
+            timer += speed;
+        }
+    }
+
+    private void showAndCreateInitialPopulation(Creature[] pop) {
+        camzoom = 0.12f;
+        background(220, 253, 102);
+        // Create 25 x 40 = 1000 creatures
+        for (int y = 0; y < 25; y++) {
+            for (int x = 0; x < 40; x++) {
+
+                int id = y * 40 + x;
+
+                Creature createdCreature = Creature.createRandomCreature(id + 1, (a, b) -> random(a, b));
+
+                pop[id] = createdCreature;
+
+                // Draw it.
+                pop[id].drawCreatureWhole(x * 30 + 55, y * 25 + 30, 0, this);
+            }
+        }
+        noStroke();
+        fill(100, 100, 200);
+        rect(900, 664, 260, 40);
+        fill(0);
+        textAlign(CENTER);
+        textFont(font, 24);
+        text("Here are your 1000 randomly generated creatures!!!", windowWidth / 2 - 200, 690);
+        text("Back", windowWidth - 250, 690);
+        skipFirstKill = true;
+    }
+
+    private void showStatus() {
+        if (gen >= 5) {
+            genSelected = round((sliderX - 760) * (gen - 1) / 410) + 1;
+        } else {
+            genSelected = round((sliderX - 760) * gen / 410);
+        }
+        noStroke();
+        fill(0);
+        background(255, 200, 130);
+        textFont(font, 32);
+        textAlign(LEFT);
+        textFont(font, 96);
+        text("Generation " + max(genSelected, 0), 20, 100);
+        textFont(font, 28);
+        fill(100, 200, 100);
+        rect(760, 20, 460, 40);
+        rect(760, 70, 460, 40);
+        rect(760, 120, 230, 40);
+        if (gensToDo >= 2) {
+            fill(128, 255, 128);
+        } else {
+            fill(70, 140, 70);
+        }
+        rect(990, 120, 230, 40);
+        fill(0);
+        text("Do 1 step-by-step generation.", 770, 50);
+        text("Do 1 quick generation.", 770, 100);
+        text("Do 1 gen ASAP.", 770, 150);
+        if (gensToDo >= 2) {
+            textFont(font, 15);
+            text("Currently ALAPing.", 996, 136);
+            text("Click & hold anywhere to stop.", 996, 153);
+            textFont(font, 28);
+        } else {
+            text("Do gens ALAP.", 1000, 150);
+        }
+        text("Median Distance", 50, 160);
+        textAlign(CENTER);
+        textAlign(RIGHT);
+        text(calcMedian() + " m", 700, 160);
+        drawHistogram(760, 410, 460, 280);
+        drawGraphImage();
+
+        noStroke();
+        if (gen >= 1) {
+            textAlign(CENTER);
+            final float mX = mouseX / WINDOW_SIZE;
+            if (drag)
+                sliderX = min(max(sliderX + (mX - 25 - sliderX) * 0.2f, 760), 1170);
+            fill(100);
+            rect(760, 340, 460, 50);
+            fill(220);
+            rect(sliderX, 340, 50, 50);
+            int fs = 0;
             if (genSelected >= 1) {
-                textAlign(CENTER);
-                camzoom = 0.028f;
-                for (int k = 0; k < 3; k++) {
-                    fill(220);
-                    rect(760 + k * 160, 180, 140, 140);
-                    creatureDatabase.get((genSelected - 1) * 3 + k).drawCreatureWhole(830 + 160 * k, 290, 0, this);
-                }
-                fill(0);
-                textFont(font, 16);
-                text("Worst Creature", 830, 310);
-                text("Median Creature", 990, 310);
-                text("Best Creature", 1150, 310);
+                fs = floor(log(genSelected) / log(10));
             }
-            if (justGotBack)
-                justGotBack = false;
+            fontSize = fontSizes[fs];
+            textFont(font, fontSize);
+            fill(0);
+            text(genSelected, sliderX + 25, 366 + fontSize * 0.3333f);
         }
-        if (statusWindow >= -3) {
-            drawStatusWindow();
-            if (statusWindow >= -3 && !miniSimulation) {
-                openMiniSimulation();
+        if (genSelected >= 1) {
+            textAlign(CENTER);
+            camzoom = 0.028f;
+            for (int k = 0; k < 3; k++) {
+                fill(220);
+                rect(760 + k * 160, 180, 140, 140);
+                creatureDatabase.get((genSelected - 1) * 3 + k).drawCreatureWhole(830 + 160 * k, 290, 0, this);
+            }
+            fill(0);
+            textFont(font, 16);
+            text("Worst Creature", 830, 310);
+            text("Median Creature", 990, 310);
+            text("Best Creature", 1150, 310);
+        }
+    }
+
+    private void showNoPopulation() {
+        noStroke();
+        fill(0);
+        background(255, 200, 130);
+        textFont(font, 32);
+        textAlign(LEFT);
+        textFont(font, 96);
+        text("Generation " + max(genSelected, 0), 20, 100);
+        textFont(font, 28);
+        fill(100, 200, 100);
+        rect(20, 250, 200, 100);
+        fill(0);
+        text("Since there are no creatures yet, create 1000 creatures!", 20, 160);
+        text("They will be randomly created, and also very simple.", 20, 200);
+        text("CREATE", 56, 312);
+    }
+
+    private void showTitlePage() {
+        background(255);
+        fill(100, 200, 100);
+        noStroke();
+        rect(windowWidth / 2 - 200, 300, 400, 200);
+        fill(0);
+        text("EVOLUTION!", windowWidth / 2, 200);
+        text("START", windowWidth / 2, 430);
+    }
+
+    private void updateStatisticsOfC2() {
+        updatePercentile();
+        storeCreatureSamples();
+
+        // Create Histogram which consists of bars
+        int[] currentBars = new int[barLen];
+
+        // Create Species counter: Values is the number of creatures of that species in the current generation.
+        int[] speciesCount = new int[101];
+
+        for (int i = 0; i < CREATURE_COUNT; i++) {
+            // Find bar for this creature, this bar need not exist!
+            int bar = floor(c2.get(i).getFitness() * histBarsPerMeter - minBar);
+            if (bar >= 0 && bar < barLen) {
+                // if it does exist, increase it
+                currentBars[bar]++;
+            }
+
+            // Increase Species counter
+            int species = c2.get(i).getSpecies();
+            speciesCount[species]++;
+        }
+        // Nothing more to do with the histogram, store it.
+        barCounts.add(currentBars);
+
+        /*
+         * Create stacked lined graph over species The stacked line graph describes regions per Species. The first
+         * region extends from stacked[0] to stacked[1], where stacked[1] is the count of species "00". The next region
+         * extends from stacked[1] to stacked[2] where stacked[2] is the count of species "01"+ the count of all
+         * "smaller" species, which is actually stacked[1].
+         * 
+         * Therefore, stacked[i+1] = stacked[i]+countOfSpecies(i)
+         */
+        Integer stackedSpeciesGraph[] = new Integer[101];
+        stackedSpeciesGraph[0] = 0; // 
+        int record = 0;
+        int recordHolder = 0;
+        for (int species = 0; species < 100; species++) {
+            final int currentSpeciesCount = speciesCount[species];
+
+            stackedSpeciesGraph[species + 1] = stackedSpeciesGraph[species] + currentSpeciesCount;
+            if (currentSpeciesCount > record) {
+                record = currentSpeciesCount;
+                recordHolder = species;
             }
         }
-        overallTimer++;
+        // Store graph and record
+        speciesCounts.add(stackedSpeciesGraph);
+        topSpeciesCounts.add(recordHolder);
+    }
+
+    /**
+     * We need to be quick and do not care about an statistical update. Just fake it, by copying previous results. By
+     * being quick, we hopefully get ahead of simulation again.
+     * 
+     * This is not used, because updating the statistic is fast enough.
+     */
+    @SuppressWarnings("unused")
+    private void updateStatisticsOfC2Shabby() {
+        //updatePercentile();
+        percentile.add(percentile.get(percentile.size() - 1));
+        storeCreatureSamples();
+
+        // Nothing more to do with the histogram, store it.
+        barCounts.add(barCounts.get(barCounts.size() - 1));
+
+        // Store graph and record
+        speciesCounts.add(speciesCounts.get(speciesCounts.size() - 1));
+        topSpeciesCounts.add(topSpeciesCounts.get(topSpeciesCounts.size() - 1));
+    }
+
+    private void storeCreatureSamples() {
+        creatureDatabase.add(c2.get(CREATURE_COUNT - 1).copyCreature(-1));
+        creatureDatabase.add(c2.get(CREATURE_COUNT / 2 - 1).copyCreature(-1));
+        creatureDatabase.add(c2.get(0).copyCreature(-1));
+    }
+
+    private void updatePercentile() {
+        Float currentPercentile[] = new Float[29];
+        for (int i = 0; i < 29; i++) {
+            currentPercentile[i] = c2.get(percentileIndex[i]).getFitness();
+        }
+        percentile.add(currentPercentile);
     }
 
     static public void main(String[] passedArgs) {
