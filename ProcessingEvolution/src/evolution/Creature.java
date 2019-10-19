@@ -23,8 +23,7 @@ public class Creature implements Cloneable {
      */
     private boolean tested;
 
-    private Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm,  boolean talive, float tct,
-            float tmut) {
+    private Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm, boolean talive, float tct, float tmut) {
         id = tid;
         m = tm;
         n = tn;
@@ -38,13 +37,16 @@ public class Creature implements Cloneable {
      * 
      */
     public Creature(int tid, ArrayList<Node> tn, ArrayList<Muscle> tm, float tct, float tmut) {
-        this(tid, tn, tm,  true, tct, tmut);
+        this(tid, tn, tm, true, tct, tmut);
     }
 
     /**
-     * Creates a new random creature with the given id. The creature is "stable" and at the origin. 
-     * @param id id to use for the new creature
-     * @param random returns random number in the range [a, b)
+     * Creates a new random creature with the given id. The creature is "stable" and at the origin.
+     * 
+     * @param id
+     *            id to use for the new creature
+     * @param random
+     *            returns random number in the range [a, b)
      * @return newly created creature in a stable condition.
      */
     public static Creature createRandomCreature(int id, FloatBinaryOperation random) {
@@ -87,8 +89,7 @@ public class Creature implements Cloneable {
         }
         // Create the creature based on these nodes and muscles
         float heartbeat = random.applyAsFloat(40, 80);
-        Creature createdCreature = new Creature(id, new ArrayList<Node>(n), new ArrayList<Muscle>(m), heartbeat,
-                1.0f);
+        Creature createdCreature = new Creature(id, new ArrayList<Node>(n), new ArrayList<Muscle>(m), heartbeat, 1.0f);
 
         // That lone nodes and overlapping muscles are still considered when we come to a stable configuration seems weird. 
 
@@ -113,7 +114,7 @@ public class Creature implements Cloneable {
      *            some random function
      * @param random
      *            another random function
-     * @return
+     * @return a mutated copy of this Creature.
      */
     public Creature modified(int id, FloatSupplier r, FloatBinaryOperation random) {
         Creature modifiedCreature = new Creature(id, new ArrayList<Node>(0), new ArrayList<Muscle>(0), true,
@@ -293,7 +294,7 @@ public class Creature implements Cloneable {
         copy.tested = this.tested;
         return copy;
     }
-    
+
     @Override
     public Creature clone() {
         return copyCreature(-1);
@@ -441,8 +442,7 @@ public class Creature implements Cloneable {
     }
 
     /**
-     * @param alive
-     *            the alive to set
+     * Makes this a dead Creature, e. g. {@code isAlive()==false}.
      */
     public void die() {
         this.alive = false;

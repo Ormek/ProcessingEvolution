@@ -27,8 +27,8 @@ public class Result {
     /**
      * Create a new result object, using the population and generation provided.
      * 
-     * @param generation
-     * @param population
+     * @param generation number of the generation provided.
+     * @param population the creatures of the generation.
      */
     public Result(int generation, ArrayList<Creature> population) {
         this.currentGeneration = generation;

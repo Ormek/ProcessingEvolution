@@ -15,12 +15,11 @@ import evolution.Rectangle;
 import evolution.Result;
 
 /**
- * Simulate the evolution of creatures in a static environment. Input is a set of creatures and an environment. This
+ * <p>Simulate the evolution of creatures in a static environment. Input is a set of creatures and an environment. This
  * class will spawn threads to evolve the creatures, through adaptation to the environment. Class does not care about
- * creature ids.<br/>
+ * creature ids.</p>
  * 
  * Its main loop does the following:
- * 
  * <pre>
  * 1. Kill weak creatures and spawn new ones.
  * 2. Evaluate generation.
@@ -137,7 +136,6 @@ public class EvolutionSimulator implements Runnable {
      * 4. Increase gen count, abort if gen limit reached.
      * </pre>
      * 
-     * @throws InterruptedException
      */
     private void mainLoop() {
         p.startTiming();

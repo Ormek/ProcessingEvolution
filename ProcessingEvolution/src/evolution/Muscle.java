@@ -45,10 +45,13 @@ public class Muscle {
         return target;
     }
 
-
     /**
-     * Muscles tries to get to target length and applies its force accelerating the connected nodes as a side effect
+     * Muscles tries to get to target length and applies its force accelerating the connected nodes as a side effect.
+     * This uses the global variables {@link #c1} and {@link #c2} as index into the {@code n} to retrieve the nodes to
+     * move about.
      * 
+     * @param n
+     *            List of the nodes that
      * @param target
      *            Length the muscle tries to achieve
      */
@@ -60,20 +63,19 @@ public class Muscle {
         // The value -0.4 looks suspicious. Maybe it is the now constant mass/size of any node?
         // Yet, it seems to be an upper and lower bound on the force. Still...
         float force = Evolution3WEB.min(Evolution3WEB.max(1 - (distance / target), -0.4f), 0.4f);
-        
-        assert(ni1.m==0.4f);
-        assert(ni2.m==0.4f);
+
+        assert (ni1.m == 0.4f);
+        assert (ni2.m == 0.4f);
         final float boostX = Evolution3WEB.cos(angle) * force * rigidity / 0.4f;
         final float boostY = Evolution3WEB.sin(angle) * force * rigidity / 0.4f;
-        ni1.vx += boostX; 
+        ni1.vx += boostX;
         ni1.vy += boostY;
         ni2.vx -= boostX;
         ni2.vy -= boostY;
     }
 
     public Muscle copyMuscle() {
-        return new Muscle(period, c1, c2, contractTime, extendTime, contractLength, extendLength, contracted,
-                rigidity);
+        return new Muscle(period, c1, c2, contractTime, extendTime, contractLength, extendLength, contracted, rigidity);
     }
 
     public Muscle modifyMuscle(int nodeNum, float mutability, FloatSupplier r, FloatBinaryOperation random) {
@@ -85,20 +87,27 @@ public class Muscle {
         if (random.applyAsFloat(0, 1) < 0.02f * mutability * Evolution3WEB.MUTABILITY_FACTOR) {
             newc2 = PApplet.parseInt(random.applyAsFloat(0, nodeNum));
         }
-        float newR = Evolution3WEB.min(Evolution3WEB.max(rigidity * (1 + r.getAsFloat() * 0.9f * mutability * Evolution3WEB.MUTABILITY_FACTOR), 0.01f), 0.08f);
+        float newR = Evolution3WEB.min(Evolution3WEB.max(
+                rigidity * (1 + r.getAsFloat() * 0.9f * mutability * Evolution3WEB.MUTABILITY_FACTOR), 0.01f), 0.08f);
         float maxMuscleChange = 1 + 0.025f / newR;
-        float newCL = Evolution3WEB.min(Evolution3WEB.max(contractLength + r.getAsFloat() * mutability * Evolution3WEB.MUTABILITY_FACTOR, 0.4f), 2);
-        float newEL = Evolution3WEB.min(Evolution3WEB.max(extendLength + r.getAsFloat() * mutability * Evolution3WEB.MUTABILITY_FACTOR, 0.4f), 2);
+        float newCL = Evolution3WEB.min(
+                Evolution3WEB.max(contractLength + r.getAsFloat() * mutability * Evolution3WEB.MUTABILITY_FACTOR, 0.4f),
+                2);
+        float newEL = Evolution3WEB.min(
+                Evolution3WEB.max(extendLength + r.getAsFloat() * mutability * Evolution3WEB.MUTABILITY_FACTOR, 0.4f),
+                2);
         float newCL2 = Evolution3WEB.min(newCL, newEL);
         float newEL2 = Evolution3WEB.min(Evolution3WEB.max(newCL, newEL), newCL2 * maxMuscleChange);
         float newCT = contractTime;
         float newET = extendTime;
         if (random.applyAsFloat(0, 1) < 0.5f) { // contractTime is changed
-            newCT = ((contractTime - extendTime) * r.getAsFloat() * mutability * Evolution3WEB.MUTABILITY_FACTOR + newCT + 1) % 1;
+            newCT = ((contractTime - extendTime) * r.getAsFloat() * mutability * Evolution3WEB.MUTABILITY_FACTOR + newCT
+                    + 1) % 1;
         } else { // extendTime is changed
-            newET = ((extendTime - contractTime) * r.getAsFloat() * mutability * Evolution3WEB.MUTABILITY_FACTOR + newET + 1) % 1;
+            newET = ((extendTime - contractTime) * r.getAsFloat() * mutability * Evolution3WEB.MUTABILITY_FACTOR + newET
+                    + 1) % 1;
         }
-        return new Muscle(Evolution3WEB.max(period + PApplet.parseInt(random.applyAsFloat(-0.01f, 1.01f)), 0), newc1, newc2, newCT, newET, newCL2, newEL2,
-                Evolution3WEB.isItContracted(newCT, newET), newR);
+        return new Muscle(Evolution3WEB.max(period + PApplet.parseInt(random.applyAsFloat(-0.01f, 1.01f)), 0), newc1,
+                newc2, newCT, newET, newCL2, newEL2, Evolution3WEB.isItContracted(newCT, newET), newR);
     }
 }

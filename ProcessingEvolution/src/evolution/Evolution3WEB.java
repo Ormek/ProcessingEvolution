@@ -23,13 +23,14 @@ public class Evolution3WEB extends PApplet {
     private static final int CREATURE_COUNT = 1000;
 
     /**
-     * <pre>
+     * <pre>{@code
      * WAITING
      * INIT: I0 -> I1 -> I2 -> I3 -> 1
      * STEP_BY_STEP: 1 -> (4 -> 4B)+ -> 4 -> 6 -> .. 13 -> 1
      * QUICK: 1 -> 4 -> 6 -> .. -> 13 -> 1
-     * ASAP: 1 -> 4 -> 6 -> 10 -> 12 -> 1
-     * </pre>
+     * ASAP (FOREGROUND): 1 -> 4 -> 6 -> 10 -> 12 -> 1
+     * ASAP (BACKGROUND): 1 -> 4 -> 14 -> 1
+     * }</pre>
      * 
      * @author Oliver Meyer
      */
@@ -47,6 +48,11 @@ public class Evolution3WEB extends PApplet {
         MENU_14_WAIT_FOR_GEN
     };
 
+    /**
+     * These Modes apply to {@link SimModes#GEN} only.
+     * @author Oliver Meyer
+     *
+     */
     enum Modes {
         /**
          * Step through generation evolution in AWT Thread, that is, do the evolution in
@@ -60,8 +66,18 @@ public class Evolution3WEB extends PApplet {
     };
 
     enum SimModes {
-        SLOW, QUICK, GEN
-    };
+        /**
+         * Simulate one generation step by step, even showing the fitness test of the creators. 
+         */
+        SLOW, 
+        /**
+         * Simulate  one generation step by step, but skip showing the fitness test of the individuals.
+         */
+        QUICK, 
+        /**
+         * Simulate one or multiple generations, showing the results only.
+         */
+        GEN };
 
     // These are the easy-to-edit variables.
     final boolean USE_RANDOM_SEED = true;

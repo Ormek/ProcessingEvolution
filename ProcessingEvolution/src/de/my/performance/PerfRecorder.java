@@ -49,7 +49,7 @@ public class PerfRecorder {
      * Create new Performance recorder with default label and customized filename. The file used follows the same
      * conventions as the default filename used with {@link #PerfRecorder()}, but also has a specific prefix.
      * 
-     * @param filePrefix
+     * @param filePrefix will become part of the filename.
      */
     public PerfRecorder(String filePrefix) {
         final SimpleDateFormat form = new SimpleDateFormat("yyMMdd-HHmmssSSS");
