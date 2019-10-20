@@ -15,11 +15,14 @@ import evolution.Rectangle;
 import evolution.Result;
 
 /**
- * <p>Simulate the evolution of creatures in a static environment. Input is a set of creatures and an environment. This
+ * <p>
+ * Simulate the evolution of creatures in a static environment. Input is a set of creatures and an environment. This
  * class will spawn threads to evolve the creatures, through adaptation to the environment. Class does not care about
- * creature ids.</p>
+ * creature ids.
+ * </p>
  * 
  * Its main loop does the following:
+ * 
  * <pre>
  * 1. Kill weak creatures and spawn new ones.
  * 2. Evaluate generation.
@@ -49,9 +52,14 @@ public class EvolutionSimulator implements Runnable {
     private BlockingQueue<Result> resultBuffer;
 
     /**
-     * Number of generations to run until we stop.
+     * Number of generations to run until we stop. Setting this to 0 will stop the simulation.
      */
     private int genToDo;
+
+    /**
+     * The thread running this simulation or null, if it is not running.
+     */
+    private Thread backgroundThread;
     /**
      * If true the first loop will skip natural selection and and regrow; it will start with evaluation the given
      * population. If false, all iterations will be similar.
@@ -140,7 +148,7 @@ public class EvolutionSimulator implements Runnable {
     private void mainLoop() {
         p.startTiming();
         try {
-            while (!Thread.interrupted() && generation != genToDo) {
+            while (!Thread.interrupted() && generation <= genToDo) {
                 if (!skipFirstKill) {
                     // Selection, that is let half the population die
                     naturalSelection();
@@ -167,13 +175,18 @@ public class EvolutionSimulator implements Runnable {
             }
         } catch (InterruptedException e) {
             // Stop because we got interrupted
+            genToDo = 0;
         }
+        backgroundThread = null; // We are actually done.
     }
 
     private void logPerformance() {
         if (generation % 100 == 0) {
             p.setLabel(statusMessage() + "It took: ");
             p.recordIteration();
+        }
+        if (generation % 10 == 0) {
+            System.out.println("Gen: " + generation + ", Queue at: " + resultBuffer.size());
         }
     }
 
@@ -253,6 +266,26 @@ public class EvolutionSimulator implements Runnable {
         final float worst = population.get(population.size() - 1).getFitness();
         final float median = population.get(population.size() / 2).getFitness();
         return "Generation: " + generation + " Best: " + best + " Median: " + median + " Worst: " + worst;
+    }
+
+    /**
+     * Ensure this Simulator is running. If no thread exists to run this simulator, create one. Otherwise, do nothing.
+     * You should be able to restart a simulation. It will continue with the next generation.
+     */
+    public void start() {
+        if (backgroundThread == null) {
+            backgroundThread = new Thread(this, "EvolutionSimulator");
+            backgroundThread.start();
+        } else {
+            // we are already there. Do nothing
+        }
+    }
+
+    /**
+     * Make this Simulation stop eventually. May simulate one more generation and then stop.
+     */
+    public void finish() {
+        genToDo = 0;
     }
 
 }

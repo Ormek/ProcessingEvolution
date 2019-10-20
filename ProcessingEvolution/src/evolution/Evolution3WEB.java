@@ -23,14 +23,16 @@ public class Evolution3WEB extends PApplet {
     private static final int CREATURE_COUNT = 1000;
 
     /**
-     * <pre>{@code
+     * <pre>
+     * {@code
      * WAITING
      * INIT: I0 -> I1 -> I2 -> I3 -> 1
      * STEP_BY_STEP: 1 -> (4 -> 4B)+ -> 4 -> 6 -> .. 13 -> 1
      * QUICK: 1 -> 4 -> 6 -> .. -> 13 -> 1
      * ASAP (FOREGROUND): 1 -> 4 -> 6 -> 10 -> 12 -> 1
      * ASAP (BACKGROUND): 1 -> 4 -> 14 -> 1
-     * }</pre>
+     * }
+     * </pre>
      * 
      * @author Oliver Meyer
      */
@@ -50,6 +52,7 @@ public class Evolution3WEB extends PApplet {
 
     /**
      * These Modes apply to {@link SimModes#GEN} only.
+     * 
      * @author Oliver Meyer
      *
      */
@@ -67,17 +70,18 @@ public class Evolution3WEB extends PApplet {
 
     enum SimModes {
         /**
-         * Simulate one generation step by step, even showing the fitness test of the creators. 
+         * Simulate one generation step by step, even showing the fitness test of the creators.
          */
-        SLOW, 
+        SLOW,
         /**
-         * Simulate  one generation step by step, but skip showing the fitness test of the individuals.
+         * Simulate one generation step by step, but skip showing the fitness test of the individuals.
          */
-        QUICK, 
+        QUICK,
         /**
          * Simulate one or multiple generations, showing the results only.
          */
-        GEN };
+        GEN
+    };
 
     // These are the easy-to-edit variables.
     final boolean USE_RANDOM_SEED = true;
@@ -117,11 +121,12 @@ public class Evolution3WEB extends PApplet {
     // ALSO NOTE: y-values increase as you go down. So 3 is in the air, and -3
     // is in the ground. 0 is the surface.
     final Rectangle[] RECTANGLES = {
-            //Example hurdles 
-            //            new Rectangle(2, -0.4, 7, 1), new Rectangle(4, -0.8f, 9, 1), new Rectangle(6, -1.2, 11, 1),
-            //            new Rectangle(8, -1.6, 13, 1), new Rectangle(10, -2, 15, 1), new Rectangle(12, -2.4f, 17, 1),
-            //            new Rectangle(14, -2.8, 19, 1), new Rectangle(16, -3.2, 21, 1), new Rectangle(18, -3.6f, 23, 1),
-            //            new Rectangle(20, -4.0, 25, 1)
+            //Example hurdles with gap
+            // new Rectangle(5, -1f, 7, -0.5f), new Rectangle(10, -1.4f, 12, -0.5f), new Rectangle(15, -1.8f, 17, -0.5f),
+            // new Rectangle(20, -2f, 22, -0.5f),
+
+            //Example pickes
+            //new Rectangle(5, -1.5f, 5.2, 0f), new Rectangle(10, -1.5f, 10.2, 0f), new Rectangle(15, -1.5f, 17, 0f),
 
     };
 
@@ -199,7 +204,7 @@ public class Evolution3WEB extends PApplet {
      */
     private BlockingQueue<Result> resultBuffer = new ArrayBlockingQueue<Result>(100, false);
 
-    private Thread backgroundThread;
+    private EvolutionSimulator backgroundSimulator;
 
     public Evolution3WEB() {
         super();
@@ -429,8 +434,14 @@ public class Evolution3WEB extends PApplet {
                         graphImage.strokeWeight(1);
                     }
                 }
+                int segments;
+                if (resultBuffer.size() == 0) {
+                    segments = graphWidth;
+                } else {
+                    segments = 50;
+                }
                 // Instead of drawing every generation, draw 10
-                int step = gen / 10 + 1;
+                final int step = gen / segments + 1;
                 for (int j = 0; j < gen; j += step) {
                     if (j > gen) {
                         j = gen;
@@ -642,8 +653,11 @@ public class Evolution3WEB extends PApplet {
     }
 
     public void mousePressed() {
+        // Stop ongoing simulation.
         if (gensToDo >= 1) {
+            // This will influence the Foreground simulation.
             gensToDo = 0;
+            backgroundSimulator.finish();
         }
         float mX = mouseX / WINDOW_SIZE;
         float mY = mouseY / WINDOW_SIZE;
@@ -1060,10 +1074,9 @@ public class Evolution3WEB extends PApplet {
                 }
                 case BACKGROUND: {
                     // Start Background thread.
-                    EvolutionSimulator es = new EvolutionSimulator(Arrays.stream(c), rects.stream(), resultBuffer,
+                    backgroundSimulator = new EvolutionSimulator(Arrays.stream(c), rects.stream(), resultBuffer,
                             gensToDo, skipFirstKill);
-                    backgroundThread = new Thread(es, "EvolutionSimulator");
-                    backgroundThread.start();
+                    backgroundSimulator.start();
                     nextState = MenuStates.MENU_14_WAIT_FOR_GEN;
                     break;
                 }
@@ -1088,21 +1101,29 @@ public class Evolution3WEB extends PApplet {
                 cam = 0;
             }
         } else if (menu == MENU_14_WAIT_FOR_GEN) {
-            Result recent = resultBuffer.poll();
-            if (null != recent) {
-                c2 = recent.getPopulation();
-                skipFirstKill = false;
-                updateStatisticsOfC2();
-                gen++;
-                gensToDo--;
-                if (gensToDo == 0) {
-                    // This was the last gen to receive. Shallow copy into c
-                    for (int i = 0; i < c.length; i++) {
-                        c[i] = c2.get(i);
-                    }
+            if (gensToDo == 0) {
+                // Clear resultBuffer and update c
+                for (Result recent = resultBuffer.poll(); recent != null; recent = resultBuffer.poll()) {
+                    c2 = recent.getPopulation();
+                    skipFirstKill = false;
+                    updateStatisticsOfC2();
+                    gen++;
                 }
-                setMenu(MENU_1_SHOW_STATS);
+                // We are done with every generation, now copy the last generation to c.
+                for (int i = 0; i < c.length; i++) {
+                    c[i] = c2.get(i);
+                }
+            } else {
+                Result recent = resultBuffer.poll();
+                if (null != recent) {
+                    c2 = recent.getPopulation();
+                    skipFirstKill = false;
+                    updateStatisticsOfC2();
+                    gen++;
+                    gensToDo--;
+                }
             }
+            setMenu(MENU_1_SHOW_STATS);
         } else if (menu == MENU_6_SORT_UPDATE_STATS) {
             sortAndUpdateStats();
             if (simulationMode != SimModes.GEN) {
